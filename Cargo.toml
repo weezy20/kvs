@@ -1,0 +1,19 @@
+[package]
+name = "kvs"
+version = "0.1.0"
+edition = "2021"
+description = "The cargo project, kvs, builds a command-line key-value store client called kvs, which in turn calls into a library called kvs."
+authors = ["Abhishek Shah <abhishekshah3@gmail.com>"]
+
+[[bin]]
+name = "kvs-client"
+path = "src/bin/main.rs"
+
+[lib]
+name = "kvs"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.1.6", features = ["derive"] }
+thiserror = "1.0.38"
+
