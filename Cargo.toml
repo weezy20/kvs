@@ -12,6 +12,8 @@ path = "src/bin/main.rs"
 [lib]
 name = "kvs"
 path = "src/lib.rs"
+doctest = false
+test = false
 
 [dependencies]
 clap = { version = "4.1.6", features = ["derive"] }

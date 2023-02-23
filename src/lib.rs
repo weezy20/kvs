@@ -1,5 +1,12 @@
+#![allow(unused, warnings)]
 pub struct KvStore<K, V>(std::marker::PhantomData<(K, V)>);
 
+impl<K, V> KvStore<K, V> {
+    pub fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+/*
 pub trait Database<Key, Value> {
     /// set key -> value, mutates existing key
     fn set(&mut self, key: Key, value: Value);
@@ -8,6 +15,7 @@ pub trait Database<Key, Value> {
     /// Ok indicates successful removal
     fn remove(&mut self, key: Key) -> Result<(), DbError>;
 }
+*/
 
 #[derive(thiserror::Error, Debug)]
 pub enum DbError {
@@ -15,16 +23,21 @@ pub enum DbError {
     KeyNotFound,
 }
 
-impl<K, V> Database<K, V> for KvStore<K, V> {
-    fn set(&mut self, key: K, value: V) {
-        todo!()
+impl<K, V> KvStore<K, V> {
+    pub fn set(&mut self, key: K, value: V) {
+        unimplemented!()
     }
 
-    fn get(&self, key: K) -> Option<V> {
-        todo!()
+    pub fn get(&self, key: K) -> Option<V> {
+        unimplemented!()
     }
 
-    fn remove(&mut self, key: K) -> Result<(), DbError> {
-        todo!()
+    pub fn remove(&mut self, key: K) -> Result<(), DbError> {
+        unimplemented!()
     }
+}
+
+#[test]
+fn foo() {
+    assert!(true)
 }
