@@ -19,5 +19,7 @@ fn main() {
                 kvs.remove(key).unwrap();
             }
         }
+    } else {
+        std::process::exit(1);
     }
 }
