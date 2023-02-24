@@ -1,11 +1,25 @@
 #![allow(unused, warnings)]
 
-pub mod cli;
-pub struct KvStore<K, V>(std::marker::PhantomData<(K, V)>);
+use std::{collections::HashMap, hash::Hash};
 
-impl<K, V> KvStore<K, V> {
+pub mod cli;
+pub struct KvStore<K, V>
+where
+    K: Eq + Hash,
+{
+    map: HashMap<K, V>,
+    marker: std::marker::PhantomData<(K, V)>,
+}
+
+impl<K, V> KvStore<K, V>
+where
+    K: Eq + Hash,
+{
     pub fn new() -> Self {
-        Self(std::marker::PhantomData)
+        Self {
+            map: HashMap::new(),
+            marker: std::marker::PhantomData,
+        }
     }
 }
 /*
@@ -19,23 +33,28 @@ pub trait Database<Key, Value> {
 }
 */
 
+#[allow(unused)]
 #[derive(thiserror::Error, Debug)]
 pub enum DbError {
     #[error("Key doesn't exist")]
     KeyNotFound,
 }
 
-impl<K, V> KvStore<K, V> {
+impl<K, V> KvStore<K, V>
+where
+    K: Eq + Hash,
+    V: Clone,
+{
     pub fn set(&mut self, key: K, value: V) {
-        panic!("unimplemented")
+        self.map.insert(key, value);
     }
 
     pub fn get(&self, key: K) -> Option<V> {
-        panic!("unimplemented")
+        self.map.get(&key).cloned()
     }
 
-    pub fn remove(&mut self, key: K) -> Result<(), DbError> {
-        panic!("unimplemented")
+    pub fn remove(&mut self, key: K) {
+        let _ = self.map.remove(&key);
     }
 }
 
