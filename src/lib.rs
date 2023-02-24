@@ -1,4 +1,6 @@
 #![allow(unused, warnings)]
+
+pub mod cli;
 pub struct KvStore<K, V>(std::marker::PhantomData<(K, V)>);
 
 impl<K, V> KvStore<K, V> {
