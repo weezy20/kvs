@@ -27,15 +27,15 @@ pub enum DbError {
 
 impl<K, V> KvStore<K, V> {
     pub fn set(&mut self, key: K, value: V) {
-        unimplemented!()
+        panic!("unimplemented")
     }
 
     pub fn get(&self, key: K) -> Option<V> {
-        unimplemented!()
+        panic!("unimplemented")
     }
 
     pub fn remove(&mut self, key: K) -> Result<(), DbError> {
-        unimplemented!()
+        panic!("unimplemented")
     }
 }
 
