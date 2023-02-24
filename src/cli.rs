@@ -17,7 +17,7 @@ pub struct KvsCLI {
 /// Set new value at key
 pub struct SetCmd {
     #[arg(name = "KEY", help = "Key to be set")]
-    /// Key to Set 
+    /// Key to Set
     pub key: String,
     /// Value to Set
     #[arg(name = "VALUE", help = "Value to be set")]
@@ -28,7 +28,7 @@ pub struct SetCmd {
 /// Get value at key
 pub struct GetCmd {
     #[arg(name = "KEY", help = "Key to be fetch")]
-    /// Key to fetch 
+    /// Key to fetch
     pub key: String,
 }
 
