@@ -57,6 +57,9 @@ pub enum DbError {
     /// Key not found
     #[error("Key doesn't exist")]
     KeyNotFound,
+    /// Datbase not found at path
+    #[error("Datbase not found at path: {:?}", _0)]
+    DatabaseNotFound(&'static std::path::Path)
 }
 
 /// KvStore Result type, with error variant representing Database errors
@@ -81,9 +84,4 @@ where
         self.map.remove(&key);
         Ok(())
     }
-}
-
-#[test]
-fn foo() {
-    assert!(true)
 }
