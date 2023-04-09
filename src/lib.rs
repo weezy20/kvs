@@ -25,11 +25,15 @@
 //! - *index file* - The on-disk representation of the in-memory index.
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, path::PathBuf};
 
 pub mod cli;
+mod error;
+pub use error::{DbError, Result};
+
 /// KvStore implementation
-pub struct KvStore<K = String, V = String> {
+pub struct KvStore<K = String, V = String>
+{
     map: HashMap<K, V>,
     marker: std::marker::PhantomData<(K, V)>,
 }
@@ -45,41 +49,44 @@ where
             marker: std::marker::PhantomData,
         }
     }
-    /// Open on disk KvStore
-    pub fn open(_db: &std::path::Path) -> Result<Self> {
+    /// Open on disk KvStore.
+    /// On startup, the commands in the log are traversed from oldest to newest, and the in-memory index rebuilt.
+    /// When the size of the uncompacted log entries reach a given threshold,
+    /// kvs compacts it into a new log, removing redundent entries to reclaim disk space.
+    pub fn open(_db: impl Into<PathBuf>) -> Result<KvStore<K, V>> {
+        // TODO
         Ok(Self::new())
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-/// Database Error
-pub enum DbError {
-    /// Key not found
-    #[error("Key doesn't exist")]
-    KeyNotFound,
-    /// Datbase not found at path
-    #[error("Datbase not found at path: {:?}", _0)]
-    DatabaseNotFound(&'static std::path::Path)
+impl<K, V> Default for KvStore<K, V>
+where
+    K: Eq + Hash,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
-
-/// KvStore Result type, with error variant representing Database errors
-pub type Result<T> = core::result::Result<T, DbError>;
 
 impl<K, V> KvStore<K, V>
 where
     K: Eq + Hash,
     V: Clone,
 {
-    /// Set
+    /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
+    /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
     pub fn set(&mut self, key: K, value: V) -> Result<()> {
         self.map.insert(key, value);
         Ok(())
     }
-    /// Get
+    /// Get : . When retrieving a value for a key with the get command, it searches the index,
+    /// and if found then loads from the log the command at the corresponding log pointer,
+    /// evaluates the command and returns the result.
     pub fn get(&self, key: K) -> Result<Option<V>> {
         Ok(self.map.get(&key).cloned())
     }
-    /// Remove
+    /// Remove : When removing a key, similarly, kvs writes the rm command in the log,
+    /// then removes the key from the in-memory index.
     pub fn remove(&mut self, key: K) -> Result<()> {
         self.map.remove(&key);
         Ok(())

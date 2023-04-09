@@ -2,6 +2,7 @@
 
 #[derive(clap::Parser)]
 #[command(author, version, about)]
+#[command(arg_required_else_help = true)]
 /// The main CLI entry point
 pub struct KvsCLI {
     #[command(subcommand)]
@@ -41,6 +42,7 @@ pub struct RmCmd {
 }
 
 #[derive(clap::Subcommand)]
+#[command(subcommand_required = true)]
 /// Action Subcommand
 pub enum Action {
     /// Set new value at key
