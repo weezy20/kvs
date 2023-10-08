@@ -27,6 +27,7 @@
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
 use log::info;
+use ron::ser::PrettyConfig;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
@@ -103,7 +104,8 @@ where
             value: value.clone().into(),
         };
         // serialize the set_cmd
-        let serialized = format!("SET {}\n", ron::ser::to_string(&set_cmd)?);
+        let ron_config = PrettyConfig::default().struct_names(true);
+        let serialized = ron::ser::to_string_pretty(&set_cmd, ron_config)? + "\n";
         // write serialized to self.disk
         std::io::Write::write_all(file, serialized.as_bytes())?;
         self.map.insert(key, value);

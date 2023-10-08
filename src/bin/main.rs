@@ -18,20 +18,20 @@ fn main() -> kvs::Result<()> {
                 info!("setting {key} to {value}");
                 let Ok(_) = kvs.set(key, value) else {
                     // Note we are not handling the error variants here
-                    non_zero_exit();
+                    exit_program(1);
                 };
             }
             Action::Get(GetCmd { key }) => {
                 info!("Fetching @ {key}");
                 let Ok(val) = kvs.get(key) else {
-                    non_zero_exit();
+                    exit_program(1);
                 };
                 println!("{val:?}");
             }
             Action::Rm(RmCmd { key }) => {
                 info!("Removing {key}");
                 let Ok(_) = kvs.remove(key) else {
-                    non_zero_exit();
+                    exit_program(1);
                 };
             }
         }
@@ -41,6 +41,6 @@ fn main() -> kvs::Result<()> {
     }
 }
 
-fn non_zero_exit() -> ! {
-    std::process::exit(1)
+fn exit_program(code: i32) -> ! {
+    std::process::exit(code)
 }

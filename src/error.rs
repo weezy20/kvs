@@ -1,7 +1,6 @@
 //! Error and Result types
 
 use std::io;
-
 use std;
 
 #[derive(thiserror::Error, Debug)]

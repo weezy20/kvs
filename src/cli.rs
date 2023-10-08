@@ -17,6 +17,7 @@ pub struct KvsCLI {
 }
 
 #[derive(clap::Args, Serialize, Deserialize)]
+#[serde(rename = "SET")]
 /// Set new value at key
 pub struct SetCmd {
     #[arg(name = "KEY", help = "Key to be set")]
@@ -36,6 +37,7 @@ pub struct GetCmd {
 }
 
 #[derive(clap::Parser, Serialize, Deserialize)]
+#[serde(rename = "RM")]
 /// Remove value at key
 pub struct RmCmd {
     #[arg(name = "KEY", help = "Key to be remove")]
