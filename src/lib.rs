@@ -49,30 +49,6 @@ impl<K, V> KvStore<K, V>
 where
     K: Eq + Hash,
 {
-    /// Instantiate a new in memory store & disk store on current directory
-    /// Note: will overwrite existing file named `kv_wal_00001.log` in current dir
-    pub fn new() -> Self {
-        let dir: Option<PathBuf> = std::env::current_dir().map_or_else(
-            |e| {
-                warn!("Cannot instantiate KvStore on current directory: {e:?}");
-                None
-            },
-            Some,
-        );
-        let disk = if let Some(dir) = dir {
-            let file_path = dir.join(format!("kv_wal_{:05}.log", 1));
-            File::create_new(file_path).map_or_else(|e| {
-                warn!("Cannot create WAL for KvStore on current directory: {e:?}");
-                None
-            }, Some)
-        } else {
-            None
-        };
-        Self {
-            map: HashMap::new(),
-            disk,
-        }
-    }
     /// Open on disk KvStore.
     /// On startup, the commands in the log are traversed from oldest to newest, and the in-memory index rebuilt.
     /// When the size of the uncompacted log entries reach a given threshold,
@@ -107,12 +83,20 @@ where
 
 impl<K, V> KvStore<K, V>
 where
-    K: Eq + Hash,
-    V: Clone,
+    K: Clone + Eq + Hash + Into<String>,
+    V: Clone + Eq + Into<String>,
 {
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
     pub fn set(&mut self, key: K, value: V) -> Result<()> {
+        let set_cmd = cli::SetCmd {
+            key: key.clone().into(),
+            value: value.clone().into(),
+        };
+        // serialize the set_cmd
+        let serialized = ron::to_string(&set_cmd)?;
+        // write serialized to self.disk
+        std::io::Write::write_all(&mut self.disk.as_mut().unwrap(), serialized.as_bytes())?;
         self.map.insert(key, value);
         Ok(())
     }

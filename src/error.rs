@@ -16,9 +16,12 @@ pub enum DbError {
     /// Io Error
     #[error("{}", _0)]
     Io(#[from] io::Error),
-    /// Serde Error
+    /// SerdeJson Error
     #[error("{}", _0)]
-    Serde(#[from] serde_json::Error),
+    SerdeJson(#[from] serde_json::Error),
+    /// SerdeRon Error
+    #[error("{}", _0)]
+    SerdeRon(#[from] ron::Error),
 }
 
 /// KvStore Result type, with error variant representing Database errors

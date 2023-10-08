@@ -1,5 +1,7 @@
 //! CLI machinery for KvStore client
 
+use serde::{Deserialize, Serialize};
+
 #[derive(clap::Parser)]
 #[command(author, version, about)]
 #[command(arg_required_else_help = true)]
@@ -14,7 +16,7 @@ pub struct KvsCLI {
     pub debug: u8,
 }
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Serialize, Deserialize)]
 /// Set new value at key
 pub struct SetCmd {
     #[arg(name = "KEY", help = "Key to be set")]
@@ -33,7 +35,7 @@ pub struct GetCmd {
     pub key: String,
 }
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Serialize, Deserialize)]
 /// Remove value at key
 pub struct RmCmd {
     #[arg(name = "KEY", help = "Key to be remove")]
