@@ -25,46 +25,80 @@
 //! - *index file* - The on-disk representation of the in-memory index.
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
-use std::{collections::HashMap, hash::Hash, path::PathBuf};
+use log::{info, warn};
+use std::{
+    collections::HashMap,
+    fs::File,
+    hash::Hash,
+    path::{Path, PathBuf},
+};
 
 pub mod cli;
 mod error;
 pub use error::{DbError, Result};
 
 /// KvStore implementation
-pub struct KvStore<K = String, V = String>
-{
+#[derive(Debug, Default)]
+pub struct KvStore<K = String, V = String> {
     map: HashMap<K, V>,
-    marker: std::marker::PhantomData<(K, V)>,
+    disk: Option<File>,
 }
 
 impl<K, V> KvStore<K, V>
 where
     K: Eq + Hash,
 {
-    /// Instantiate a new in memory store
+    /// Instantiate a new in memory store & disk store on current directory
+    /// Note: will overwrite existing file named `kv_wal_00001.log` in current dir
     pub fn new() -> Self {
+        let dir: Option<PathBuf> = std::env::current_dir().map_or_else(
+            |e| {
+                warn!("Cannot instantiate KvStore on current directory: {e:?}");
+                None
+            },
+            Some,
+        );
+        let disk = if let Some(dir) = dir {
+            let file_path = dir.join(format!("kv_wal_{:05}.log", 1));
+            // File::create_new is nightly-only API, so this call will overwrite if file exists
+            File::create(file_path).ok()
+        } else {
+            None
+        };
         Self {
             map: HashMap::new(),
-            marker: std::marker::PhantomData,
+            disk,
         }
     }
     /// Open on disk KvStore.
     /// On startup, the commands in the log are traversed from oldest to newest, and the in-memory index rebuilt.
     /// When the size of the uncompacted log entries reach a given threshold,
     /// kvs compacts it into a new log, removing redundent entries to reclaim disk space.
-    pub fn open(_db: impl Into<PathBuf>) -> Result<KvStore<K, V>> {
-        // TODO
-        Ok(Self::new())
-    }
-}
-
-impl<K, V> Default for KvStore<K, V>
-where
-    K: Eq + Hash,
-{
-    fn default() -> Self {
-        Self::new()
+    pub fn open(path: impl Into<PathBuf>) -> Result<KvStore<K, V>> {
+        let mut store = KvStore {
+            map: HashMap::new(),
+            disk: None,
+        };
+        let wal_path: PathBuf = path.into();
+        // If path is a file, load that file
+        if wal_path.is_file() {
+            let file = File::open(&wal_path)?;
+            store.disk = Some(file);
+        } else if wal_path.is_dir() {
+            // Try to open default kv_wal_00001.log, or create a file
+            match File::open(&wal_path.join(Path::new("kv_wal_00001.log"))) {
+                Ok(f) => store.disk = Some(f),
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    info!("No kv_wal_00001.log found, creating a new one");
+                    let file_path = wal_path.join(Path::new("kv_wal_00001.log"));
+                    let f = File::create(&file_path)?;
+                    store.disk = Some(f);
+                    info!("File created and opened successfully: {:?}", file_path);
+                }
+                Err(unhandled_err) => return Err(unhandled_err.into()),
+            }
+        }
+        Ok(store)
     }
 }
 
