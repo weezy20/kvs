@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![feature(file_create_new)] // https://github.com/rust-lang/rust/pull/98801
 
 //! Implementation for KvStore:
 //! [Find out more here](https://github.com/pingcap/talent-plan/blob/master/courses/rust/projects/project-1/README.md)
