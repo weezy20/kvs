@@ -1,4 +1,5 @@
 #![deny(missing_docs)]
+#![feature(file_create_new)] // https://github.com/rust-lang/rust/pull/98801
 
 //! Implementation for KvStore:
 //! [Find out more here](https://github.com/pingcap/talent-plan/blob/master/courses/rust/projects/project-1/README.md)
@@ -60,8 +61,10 @@ where
         );
         let disk = if let Some(dir) = dir {
             let file_path = dir.join(format!("kv_wal_{:05}.log", 1));
-            // File::create_new is nightly-only API, so this call will overwrite if file exists
-            File::create(file_path).ok()
+            File::create_new(file_path).map_or_else(|e| {
+                warn!("Cannot create WAL for KvStore on current directory: {e:?}");
+                None
+            }, Some)
         } else {
             None
         };
@@ -113,7 +116,7 @@ where
         self.map.insert(key, value);
         Ok(())
     }
-    /// Get : . When retrieving a value for a key with the get command, it searches the index,
+    /// Get : When retrieving a value for a key with the get command, it searches the index,
     /// and if found then loads from the log the command at the corresponding log pointer,
     /// evaluates the command and returns the result.
     pub fn get(&self, key: K) -> Result<Option<V>> {
