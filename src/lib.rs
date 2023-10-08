@@ -26,10 +26,10 @@
 //! - *index file* - The on-disk representation of the in-memory index.
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
-use log::{info, warn};
+use log::info;
 use std::{
     collections::HashMap,
-    fs::File,
+    fs::{File, OpenOptions},
     hash::Hash,
     path::{Path, PathBuf},
 };
@@ -59,20 +59,28 @@ where
             disk: None,
         };
         let wal_path: PathBuf = path.into();
+        let opener = |path: &PathBuf| -> Result<File> {
+            Ok(OpenOptions::new().read(true).append(true).open(&path)?)
+        };
         // If path is a file, load that file
         if wal_path.is_file() {
-            let file = File::open(&wal_path)?;
+            let file = opener(&wal_path)?;
             store.disk = Some(file);
         } else if wal_path.is_dir() {
-            // Try to open default kv_wal_00001.log, or create a file
-            match File::open(&wal_path.join(Path::new("kv_wal_00001.log"))) {
-                Ok(f) => store.disk = Some(f),
+            let wal_path = wal_path.join(Path::new("kv_00001.log"));
+            // Try to open default kv_00001.log, or create a file
+            match std::fs::metadata(&wal_path) {
+                Ok(_) => store.disk = Some(opener(&wal_path)?),
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    info!("No kv_wal_00001.log found, creating a new one");
-                    let file_path = wal_path.join(Path::new("kv_wal_00001.log"));
-                    let f = File::create(&file_path)?;
-                    store.disk = Some(f);
-                    info!("File created and opened successfully: {:?}", file_path);
+                    info!("No kv log found, creating a new one");
+                    store.disk = Some(
+                        OpenOptions::new()
+                            .read(true)
+                            .append(true)
+                            .create(true)
+                            .open(&wal_path)?,
+                    );
+                    info!("File created and opened successfully: {:?}", wal_path);
                 }
                 Err(unhandled_err) => return Err(unhandled_err.into()),
             }
@@ -89,14 +97,15 @@ where
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
     pub fn set(&mut self, key: K, value: V) -> Result<()> {
+        let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
         let set_cmd = cli::SetCmd {
             key: key.clone().into(),
             value: value.clone().into(),
         };
         // serialize the set_cmd
-        let serialized = ron::to_string(&set_cmd)?;
+        let serialized = format!("SET {}\n", ron::ser::to_string(&set_cmd)?);
         // write serialized to self.disk
-        std::io::Write::write_all(&mut self.disk.as_mut().unwrap(), serialized.as_bytes())?;
+        std::io::Write::write_all(file, serialized.as_bytes())?;
         self.map.insert(key, value);
         Ok(())
     }

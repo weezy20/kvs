@@ -7,6 +7,9 @@ use std;
 #[derive(thiserror::Error, Debug)]
 /// Database Error
 pub enum DbError {
+    /// KvStore accessed before initialization on disk
+    #[error("KvStore not initialized. Please initialize using KvStore::Open")]
+    Uninitialized,
     /// Key not found
     #[error("Key doesn't exist")]
     KeyNotFound,
