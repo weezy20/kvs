@@ -29,7 +29,7 @@ fn main() -> kvs::Result<()> {
                 println!("{val:?}");
             }
             Action::Rm(RmCmd { key }) => {
-                info!("Removing {key}");
+                info!("Removing \"{key}\"");
                 let Ok(_) = kvs.remove(key) else {
                     exit_program(1);
                 };

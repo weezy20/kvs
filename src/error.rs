@@ -1,7 +1,7 @@
 //! Error and Result types
 
-use std::io;
 use std;
+use std::io;
 
 #[derive(thiserror::Error, Debug)]
 /// Database Error

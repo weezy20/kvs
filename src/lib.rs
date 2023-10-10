@@ -27,10 +27,11 @@
 
 use log::info;
 use ron::ser::PrettyConfig;
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    hash::Hash,
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -38,22 +39,21 @@ pub mod cli;
 mod error;
 pub use error::{DbError, Result};
 
+use crate::cli::{Action, RmCmd, SetCmd};
+
 /// KvStore implementation
 #[derive(Debug, Default)]
-pub struct KvStore<K = String, V = String> {
-    map: HashMap<K, V>,
+pub struct KvStore {
+    map: HashMap<String, String>,
     disk: Option<File>,
 }
 
-impl<K, V> KvStore<K, V>
-where
-    K: Eq + Hash,
-{
+impl KvStore {
     /// Open on disk KvStore.
     /// On startup, the commands in the log are traversed from oldest to newest, and the in-memory index rebuilt.
     /// When the size of the uncompacted log entries reach a given threshold,
     /// kvs compacts it into a new log, removing redundent entries to reclaim disk space.
-    pub fn open(path: impl Into<PathBuf>) -> Result<KvStore<K, V>> {
+    pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let mut store = KvStore {
             map: HashMap::new(),
             disk: None,
@@ -85,41 +85,71 @@ where
                 Err(unhandled_err) => return Err(unhandled_err.into()),
             }
         }
+        assert!(store.disk.is_some());
+        // Initialize the memory map with disk commands:
+        let mut d = store.disk.as_ref().unwrap();
+        let mut buf = String::new();
+        let _bytes_read = d.read_to_string(&mut buf)?;
+        let v = std::iter::from_fn({
+            let mut de = ron::Deserializer::from_str(&buf).unwrap();
+            move || {
+                de.end()
+                    .is_err()
+                    .then_some(Action::deserialize::<_>(&mut de))
+            }
+        })
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+        for action in v {
+            let _ = match action {
+                Action::Set(SetCmd { key, value }) => store.map.insert(key, value),
+                Action::Get(_) => None,
+                Action::Rm(RmCmd { key }) => store.map.remove(&key),
+            };
+        }
         Ok(store)
     }
 }
 
-impl<K, V> KvStore<K, V>
-where
-    K: Clone + Eq + Hash + Into<String>,
-    V: Clone + Eq + Into<String>,
-{
+impl KvStore {
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
-    pub fn set(&mut self, key: K, value: V) -> Result<()> {
+    pub fn set(&mut self, key: String, value: String) -> Result<()> {
+        self.map.insert(key.clone(), value.clone());
         let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
         let set_cmd = cli::SetCmd {
-            key: key.clone().into(),
-            value: value.clone().into(),
+            key: key.into(),
+            value: value.into(),
         };
         // serialize the set_cmd
         let ron_config = PrettyConfig::default().struct_names(true);
         let serialized = ron::ser::to_string_pretty(&set_cmd, ron_config)? + "\n";
         // write serialized to self.disk
+        // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
         std::io::Write::write_all(file, serialized.as_bytes())?;
-        self.map.insert(key, value);
         Ok(())
     }
     /// Get : When retrieving a value for a key with the get command, it searches the index,
     /// and if found then loads from the log the command at the corresponding log pointer,
     /// evaluates the command and returns the result.
-    pub fn get(&self, key: K) -> Result<Option<V>> {
+    pub fn get(&self, key: String) -> Result<Option<String>> {
         Ok(self.map.get(&key).cloned())
     }
     /// Remove : When removing a key, similarly, kvs writes the rm command in the log,
+    /// Checking to see first that the key exists
     /// then removes the key from the in-memory index.
-    pub fn remove(&mut self, key: K) -> Result<()> {
+    pub fn remove(&mut self, key: String) -> Result<()> {
         self.map.remove(&key);
+        // Check using in memory map
+        if self.map.contains_key(&key) {
+            let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
+            let rm_cmd = cli::RmCmd { key: key.into() };
+            // serialize the rm_cmd
+            let ron_config = PrettyConfig::default().struct_names(true);
+            let serialized = ron::ser::to_string_pretty(&rm_cmd, ron_config)? + "\n";
+            // write serialized to self.disk
+            // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
+            std::io::Write::write_all(file, serialized.as_bytes())?;
+        }
         Ok(())
     }
 }

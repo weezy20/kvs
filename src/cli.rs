@@ -28,7 +28,7 @@ pub struct SetCmd {
     pub value: String,
 }
 
-#[derive(clap::Parser)]
+#[derive(Deserialize, clap::Parser)]
 /// Get value at key
 pub struct GetCmd {
     #[arg(name = "KEY", help = "Key to be fetch")]
@@ -45,7 +45,7 @@ pub struct RmCmd {
     pub key: String,
 }
 
-#[derive(clap::Subcommand)]
+#[derive(Deserialize, clap::Subcommand)]
 #[command(subcommand_required = true)]
 /// Action Subcommand
 pub enum Action {

@@ -233,7 +233,7 @@ fn get_non_existent_value() -> Result<()> {
 
     // Open from disk again and check persistent data.
     drop(store);
-    let mut store = KvStore::<String>::open(temp_dir.path())?;
+    let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key2".to_owned())?, None);
 
     Ok(())
@@ -244,7 +244,7 @@ fn remove_non_existent_key() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     // Note this generic arg String is for the generic V as type of K is already inferred from the
     // following line of code. Rust type inference is sexy!
-    let mut store = KvStore::<String>::open(temp_dir.path())?;
+    let mut store = KvStore::open(temp_dir.path())?;
     assert!(store.remove("key1".to_owned()).is_err());
     Ok(())
 }
