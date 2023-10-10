@@ -25,7 +25,8 @@
 //! - *index file* - The on-disk representation of the in-memory index.
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
-use log::info;
+use lazy_static::lazy_static;
+use log::{error, info};
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use std::{
@@ -40,6 +41,13 @@ mod error;
 pub use error::{DbError, Result};
 
 use crate::cli::{Action, RmCmd, SetCmd};
+
+lazy_static! {
+    static ref RON_CONFIG: PrettyConfig = PrettyConfig::default()
+        .depth_limit(0)
+        .struct_names(true)
+        .separate_tuple_members(false);
+}
 
 /// KvStore implementation
 #[derive(Debug, Default)]
@@ -87,11 +95,11 @@ impl KvStore {
         }
         assert!(store.disk.is_some());
         // Initialize the memory map with disk commands:
-        let mut d = store.disk.as_ref().unwrap();
+        let mut d = store.disk.as_ref().expect("Checked above | cannot fail");
         let mut buf = String::new();
         let _bytes_read = d.read_to_string(&mut buf)?;
-        let v = std::iter::from_fn({
-            let mut de = ron::Deserializer::from_str(&buf).unwrap();
+        let mut de = ron::Deserializer::from_str(&buf).expect("RON: deserializer init error");
+        let log = std::iter::from_fn({
             move || {
                 de.end()
                     .is_err()
@@ -99,8 +107,8 @@ impl KvStore {
             }
         })
         .collect::<std::result::Result<Vec<_>, _>>()?;
-        for action in v {
-            let _ = match action {
+        for action in log {
+            match action {
                 Action::Set(SetCmd { key, value }) => store.map.insert(key, value),
                 Action::Get(_) => None,
                 Action::Rm(RmCmd { key }) => store.map.remove(&key),
@@ -116,13 +124,13 @@ impl KvStore {
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         self.map.insert(key.clone(), value.clone());
         let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
-        let set_cmd = cli::SetCmd {
+        let set_cmd = Action::Set(cli::SetCmd {
             key: key.into(),
             value: value.into(),
-        };
+        });
         // serialize the set_cmd
-        let ron_config = PrettyConfig::default().struct_names(true);
-        let serialized = ron::ser::to_string_pretty(&set_cmd, ron_config)? + "\n";
+        let serialized = ron::ser::to_string_pretty(&set_cmd, RON_CONFIG.to_owned())? + "\n";
+        // let serialized = ron::ser::to_string(&set_cmd)? + "\n";
         // write serialized to self.disk
         // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
         std::io::Write::write_all(file, serialized.as_bytes())?;
@@ -142,10 +150,10 @@ impl KvStore {
         // Check using in memory map
         if self.map.contains_key(&key) {
             let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
-            let rm_cmd = cli::RmCmd { key: key.into() };
+            let rm_cmd = Action::Rm(cli::RmCmd { key: key.into() });
             // serialize the rm_cmd
-            let ron_config = PrettyConfig::default().struct_names(true);
-            let serialized = ron::ser::to_string_pretty(&rm_cmd, ron_config)? + "\n";
+            let serialized = ron::ser::to_string_pretty(&rm_cmd, RON_CONFIG.to_owned())? + "\n";
+            // let serialized = ron::ser::to_string(&rm_cmd)? + "\n";
             // write serialized to self.disk
             // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
             std::io::Write::write_all(file, serialized.as_bytes())?;

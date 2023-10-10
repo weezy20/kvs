@@ -17,7 +17,7 @@ pub struct KvsCLI {
 }
 
 #[derive(clap::Args, Serialize, Deserialize)]
-#[serde(rename = "SET")]
+
 /// Set new value at key
 pub struct SetCmd {
     #[arg(name = "KEY", help = "Key to be set")]
@@ -28,7 +28,7 @@ pub struct SetCmd {
     pub value: String,
 }
 
-#[derive(Deserialize, clap::Parser)]
+#[derive(Serialize, Deserialize, clap::Parser)]
 /// Get value at key
 pub struct GetCmd {
     #[arg(name = "KEY", help = "Key to be fetch")]
@@ -37,7 +37,6 @@ pub struct GetCmd {
 }
 
 #[derive(clap::Parser, Serialize, Deserialize)]
-#[serde(rename = "RM")]
 /// Remove value at key
 pub struct RmCmd {
     #[arg(name = "KEY", help = "Key to be remove")]
@@ -45,14 +44,18 @@ pub struct RmCmd {
     pub key: String,
 }
 
-#[derive(Deserialize, clap::Subcommand)]
+#[derive(Serialize, Deserialize, clap::Subcommand)]
 #[command(subcommand_required = true)]
+#[serde(rename = "")]
 /// Action Subcommand
 pub enum Action {
     /// Set new value at key
+    #[serde(rename = "SET")]
     Set(SetCmd),
     /// Get value at key
+    #[serde(skip_serializing)]
     Get(GetCmd),
     /// Remove value at key
+    #[serde(rename = "RM")]
     Rm(RmCmd),
 }
