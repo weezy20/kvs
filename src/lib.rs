@@ -146,17 +146,19 @@ impl KvStore {
     /// Checking to see first that the key exists
     /// then removes the key from the in-memory index.
     pub fn remove(&mut self, key: String) -> Result<()> {
-        self.map.remove(&key);
         // Check using in memory map
         if self.map.contains_key(&key) {
             let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
-            let rm_cmd = Action::Rm(cli::RmCmd { key: key.into() });
+            let rm_cmd = Action::Rm(cli::RmCmd { key: key.clone() });
             // serialize the rm_cmd
             let serialized = ron::ser::to_string_pretty(&rm_cmd, RON_CONFIG.to_owned())? + "\n";
             // let serialized = ron::ser::to_string(&rm_cmd)? + "\n";
             // write serialized to self.disk
             // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
             std::io::Write::write_all(file, serialized.as_bytes())?;
+            self.map.remove(&key);
+        } else {
+            error!("No such key: {:?}", key);
         }
         Ok(())
     }

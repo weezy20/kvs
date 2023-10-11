@@ -15,14 +15,14 @@ fn main() -> kvs::Result<()> {
     if let Some(action) = cli.action {
         match action {
             Action::Set(SetCmd { key, value }) => {
-                info!("setting {key} to {value}");
+                info!("Setting {key} to {value}");
                 let Ok(_) = kvs.set(key, value) else {
                     // Note we are not handling the error variants here
                     exit_program(1);
                 };
             }
             Action::Get(GetCmd { key }) => {
-                info!("Fetching @ {key}");
+                info!("Fetching {key}");
                 let Ok(val) = kvs.get(key) else {
                     exit_program(1);
                 };
