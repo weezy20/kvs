@@ -57,5 +57,6 @@ pub enum Action {
     Get(GetCmd),
     /// Remove value at key
     #[serde(rename = "RM")]
+    #[clap(name = "rm")]
     Remove(RmCmd),
 }

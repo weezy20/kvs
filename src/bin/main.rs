@@ -1,6 +1,6 @@
 //! This builds the `kvs` executable
 use kvs::cli;
-use log::info;
+use log::{info, error};
 use std::env;
 fn main() -> kvs::Result<()> {
     use cli::*;
@@ -27,8 +27,8 @@ fn main() -> kvs::Result<()> {
                 if let Some(v) = val {
                     println!("{v}");
                 } else {
-                    eprintln!("Key not found");
-                    exit_program(1);
+                    error!("Key not found");
+                    // exit_program(1);
                 };
             }
             Action::Remove(RmCmd { key }) => {
