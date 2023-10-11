@@ -97,9 +97,15 @@ impl KvStore {
         // Initialize the memory map with disk commands:
         let mut d = store.disk.as_ref().expect("Checked above | cannot fail");
         let mut buf = String::new();
-        let _bytes_read = d.read_to_string(&mut buf)?;
+        // Reads the entire file at once
+        // Alternatively you can use BufReader on the file and read it line by line to perform deserialization
+        // and replay the `Action`
+        let _bytes_read = d.read_to_string(&mut buf).map_err(|e| {
+            error!("Cannot load log file into memory");
+            e
+        })?;
         let mut de = ron::Deserializer::from_str(&buf).expect("RON: deserializer init error");
-        let log = std::iter::from_fn({
+        let log: Vec<Action> = std::iter::from_fn({
             move || {
                 de.end()
                     .is_err()
@@ -111,7 +117,7 @@ impl KvStore {
             match action {
                 Action::Set(SetCmd { key, value }) => store.map.insert(key, value),
                 Action::Get(_) => None,
-                Action::Rm(RmCmd { key }) => store.map.remove(&key),
+                Action::Remove(RmCmd { key }) => store.map.remove(&key),
             };
         }
         Ok(store)
@@ -149,7 +155,7 @@ impl KvStore {
         // Check using in memory map
         if self.map.contains_key(&key) {
             let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
-            let rm_cmd = Action::Rm(cli::RmCmd { key: key.clone() });
+            let rm_cmd = Action::Remove(cli::RmCmd { key: key.clone() });
             // serialize the rm_cmd
             let serialized = ron::ser::to_string_pretty(&rm_cmd, RON_CONFIG.to_owned())? + "\n";
             // let serialized = ron::ser::to_string(&rm_cmd)? + "\n";
@@ -157,9 +163,10 @@ impl KvStore {
             // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
             std::io::Write::write_all(file, serialized.as_bytes())?;
             self.map.remove(&key);
+            Ok(())
         } else {
             error!("No such key: {:?}", key);
+            Err(DbError::KeyNotFound)
         }
-        Ok(())
     }
 }

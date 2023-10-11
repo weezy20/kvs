@@ -23,12 +23,15 @@ fn main() -> kvs::Result<()> {
             }
             Action::Get(GetCmd { key }) => {
                 info!("Fetching {key}");
-                let Ok(val) = kvs.get(key) else {
+                let val = kvs.get(key)?;
+                if let Some(v) = val {
+                    println!("{v}");
+                } else {
+                    eprintln!("Key not found");
                     exit_program(1);
                 };
-                println!("{val:?}");
             }
-            Action::Rm(RmCmd { key }) => {
+            Action::Remove(RmCmd { key }) => {
                 info!("Removing \"{key}\"");
                 let Ok(_) = kvs.remove(key) else {
                     exit_program(1);

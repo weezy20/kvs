@@ -1,5 +1,3 @@
-#![allow(unused_mut)]
-
 use assert_cmd::prelude::*;
 use kvs::{KvStore, Result};
 use predicates::ord::eq;
@@ -64,7 +62,6 @@ fn cli_set() {
 }
 
 #[test]
-#[ignore = "unimplemented"]
 fn cli_get_stored() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
 
@@ -242,8 +239,6 @@ fn get_non_existent_value() -> Result<()> {
 #[test]
 fn remove_non_existent_key() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    // Note this generic arg String is for the generic V as type of K is already inferred from the
-    // following line of code. Rust type inference is sexy!
     let mut store = KvStore::open(temp_dir.path())?;
     assert!(store.remove("key1".to_owned()).is_err());
     Ok(())
@@ -262,7 +257,6 @@ fn remove_key() -> Result<()> {
 // Insert data until total size of the directory decreases.
 // Test data correctness after compaction.
 #[test]
-#[ignore = "unimplemented"]
 fn compaction() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     let mut store = KvStore::open(temp_dir.path())?;
