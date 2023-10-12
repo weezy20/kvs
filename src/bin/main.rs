@@ -1,6 +1,6 @@
 //! This builds the `kvs` executable
 use kvs::cli;
-use log::{info, error};
+use log::{error, info};
 use std::env;
 fn main() -> kvs::Result<()> {
     use cli::*;
@@ -18,7 +18,7 @@ fn main() -> kvs::Result<()> {
                 info!("Setting {key} to {value}");
                 let Ok(_) = kvs.set(key, value) else {
                     // Note we are not handling the error variants here
-                    exit_program(1);
+                    exit_program(0);
                 };
             }
             Action::Get(GetCmd { key }) => {
@@ -33,9 +33,8 @@ fn main() -> kvs::Result<()> {
             }
             Action::Remove(RmCmd { key }) => {
                 info!("Removing \"{key}\"");
-                let Ok(_) = kvs.remove(key) else {
-                    exit_program(1);
-                };
+                let _  = kvs.remove(key);
+                exit_program(0);
             }
         }
         Ok(())
@@ -43,7 +42,7 @@ fn main() -> kvs::Result<()> {
         unreachable!("Action (subcommands) are required");
     }
 }
-
+/// Non-zero exit code indicates a program error
 fn exit_program(code: i32) -> ! {
     std::process::exit(code)
 }

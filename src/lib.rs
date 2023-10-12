@@ -45,7 +45,7 @@ use crate::cli::{Action, RmCmd, SetCmd};
 lazy_static! {
     static ref RON_CONFIG: PrettyConfig = PrettyConfig::default()
         .depth_limit(0)
-        .struct_names(true)
+        .struct_names(false)
         .separate_tuple_members(false);
 }
 
