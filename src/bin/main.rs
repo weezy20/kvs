@@ -3,6 +3,16 @@ use kvs::cli;
 use log::{error, info};
 use std::env;
 fn main() -> kvs::Result<()> {
+    // Read kv_00001.log file into BufReader 
+    // let file = std::fs::File::open("kv_00001.log")?;
+    // let buf = std::io::BufReader::new(&file);
+    // let buf2 = std::io::BufRead::lines(buf)
+    //             .map(|line| line.unwrap())
+    //             .nth(1)
+    //             .expect("contents cannot be empty");
+    // // print buf2
+    // println!("{}", buf2);
+    // std::process::exit(0);
     use cli::*;
     if env::var("RUST_LOG").is_err() {
         env::set_var("RUST_LOG", "info")

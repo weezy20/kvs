@@ -26,13 +26,13 @@
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
 use lazy_static::lazy_static;
-use log::{error, info};
+use log::{error, info, trace};
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{Read, Seek},
+    io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
 };
 
@@ -147,7 +147,7 @@ impl KvStore {
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
         self.map.insert(key.clone(), self.offset);
-        self.offset += 1 ;
+        self.offset += 1;
         let set_cmd = Action::Set(cli::SetCmd {
             key: key.into(),
             value: value.into(),
@@ -163,13 +163,19 @@ impl KvStore {
     /// Get : When retrieving a value for a key with the get command, it searches the index,
     /// and if found then loads from the log the command at the corresponding log pointer,
     /// evaluates the command and returns the result.
-    pub fn get(&self, key: String) -> Result<Option<String>> {
-        if let Some(offset) = self.map.get(&key) {
-            // Read file line number offset 
+    pub fn get(&mut self, key: String) -> Result<Option<String>> {
+        if let Some(&offset) = self.map.get(&key) {
+            trace!("offset: {:?}", offset);
+            // File reset seek on self.disk
             let mut file = self.disk.as_ref().ok_or(DbError::Uninitialized)?;
-            let mut buf = String::new();
-            file.seek(std::io::SeekFrom::Start(*offset))?;
-            file.read_to_string(&mut buf)?;
+            std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(0))?;
+            // Read file line number offset
+            let file = BufReader::new(file);
+            let buf = file
+                .lines()
+                .map(|line| line.unwrap())
+                .nth(offset as usize)
+                .expect("Offset contents cannot be empty");
             let set_cmd: Action = ron::de::from_str(&buf)?;
             match set_cmd {
                 Action::Set(set_cmd) => Ok(Some(set_cmd.value)),
