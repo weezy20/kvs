@@ -16,7 +16,7 @@ pub struct KvsCLI {
     pub debug: u8,
 }
 
-#[derive(clap::Args, Serialize, Deserialize)]
+#[derive(clap::Args, Serialize, Deserialize, Debug)]
 
 /// Set new value at key
 pub struct SetCmd {
@@ -28,7 +28,7 @@ pub struct SetCmd {
     pub value: String,
 }
 
-#[derive(Serialize, Deserialize, clap::Parser)]
+#[derive(Serialize, Deserialize, clap::Parser, Debug)]
 /// Get value at key
 pub struct GetCmd {
     #[arg(name = "KEY", help = "Key to be fetch")]
@@ -36,7 +36,7 @@ pub struct GetCmd {
     pub key: String,
 }
 
-#[derive(clap::Parser, Serialize, Deserialize)]
+#[derive(clap::Parser, Serialize, Deserialize, Debug)]
 /// Remove value at key
 pub struct RmCmd {
     #[arg(name = "KEY", help = "Key to be remove")]
@@ -44,7 +44,7 @@ pub struct RmCmd {
     pub key: String,
 }
 
-#[derive(Serialize, Deserialize, clap::Subcommand)]
+#[derive(Serialize, Deserialize, clap::Subcommand, Debug)]
 #[command(subcommand_required = true)]
 #[serde(rename = "")]
 /// Action Subcommand

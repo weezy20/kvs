@@ -3,15 +3,20 @@
 use std;
 use std::io;
 
+use crate::cli::Action;
+
 #[derive(thiserror::Error, Debug)]
 /// Database Error
 pub enum DbError {
     /// KvStore accessed before initialization on disk
-    #[error("KvStore not initialized. Please initialize using KvStore::Open")]
+    #[error("KvStore not initialized. Please initialize using KvStore::open")]
     Uninitialized,
     /// Key not found
     #[error("Key doesn't exist")]
     KeyNotFound,
+    /// Offset error
+    #[error("Expected action `Set` but found {:?}", _0)]
+    OffsetError(Action),
     /// Datbase not found at path
     #[error("Datbase not found at path: {:?}", _0)]
     DatabaseNotFound(std::path::PathBuf),
@@ -24,6 +29,9 @@ pub enum DbError {
     /// SerdeRon Error
     #[error("{}", _0)]
     SerdeRon(#[from] ron::Error),
+    /// Ron SpannedResult error
+    #[error("{}", _0)]
+    RonSpanned(#[from] ron::error::SpannedError),
 }
 
 /// KvStore Result type, with error variant representing Database errors

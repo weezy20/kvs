@@ -32,7 +32,7 @@ use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::Read,
+    io::{Read, Seek},
     path::{Path, PathBuf},
 };
 
@@ -49,11 +49,15 @@ lazy_static! {
         .separate_tuple_members(false);
 }
 
+/// File offset
+pub type Offset = u64;
 /// KvStore implementation
 #[derive(Debug, Default)]
 pub struct KvStore {
-    map: HashMap<String, String>,
+    /// In memory index from key -> offset in log
+    map: HashMap<String, Offset>,
     disk: Option<File>,
+    offset: Offset,
 }
 
 impl KvStore {
@@ -65,7 +69,9 @@ impl KvStore {
         let mut store = KvStore {
             map: HashMap::new(),
             disk: None,
+            offset: Default::default(),
         };
+        // -- Load log file into KvStore --
         let wal_path: PathBuf = path.into();
         let opener = |path: &PathBuf| -> Result<File> {
             Ok(OpenOptions::new().read(true).append(true).open(&path)?)
@@ -94,7 +100,7 @@ impl KvStore {
             }
         }
         assert!(store.disk.is_some());
-        // Initialize the memory map with disk commands:
+        // -- Initialize the memory map with disk commands --
         let mut d = store.disk.as_ref().expect("Checked above | cannot fail");
         let mut buf = String::new();
         // Reads the entire file at once
@@ -113,13 +119,24 @@ impl KvStore {
             }
         })
         .collect::<std::result::Result<Vec<_>, _>>()?;
-        for action in log {
+        // -- Replay the commands in the log --
+        let mut offset: Offset = 0;
+        for (idx, action) in log.iter().enumerate() {
+            // Offset is just tracking the current deserialized index of Action in the list of Actions
+            offset = idx as Offset;
             match action {
-                Action::Set(SetCmd { key, value }) => store.map.insert(key, value),
-                Action::Get(_) => None,
-                Action::Remove(RmCmd { key }) => store.map.remove(&key),
+                Action::Set(SetCmd { key, .. }) => {
+                    store.map.insert(key.clone(), offset);
+                }
+                Action::Get(_) => {
+                    /* Idempotent action.
+                    We should not increase offset on a Get since we ensure we never write a Get to a log */
+                }
+                Action::Remove(RmCmd { key }) => if let Some(_rm_offset) = store.map.remove(key) {},
             };
         }
+        // Store latest offset in KvStore for future insertions
+        store.offset = offset + 1;
         Ok(store)
     }
 }
@@ -128,8 +145,9 @@ impl KvStore {
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
-        self.map.insert(key.clone(), value.clone());
         let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
+        self.map.insert(key.clone(), self.offset);
+        self.offset += 1 ;
         let set_cmd = Action::Set(cli::SetCmd {
             key: key.into(),
             value: value.into(),
@@ -146,7 +164,20 @@ impl KvStore {
     /// and if found then loads from the log the command at the corresponding log pointer,
     /// evaluates the command and returns the result.
     pub fn get(&self, key: String) -> Result<Option<String>> {
-        Ok(self.map.get(&key).cloned())
+        if let Some(offset) = self.map.get(&key) {
+            // Read file line number offset 
+            let mut file = self.disk.as_ref().ok_or(DbError::Uninitialized)?;
+            let mut buf = String::new();
+            file.seek(std::io::SeekFrom::Start(*offset))?;
+            file.read_to_string(&mut buf)?;
+            let set_cmd: Action = ron::de::from_str(&buf)?;
+            match set_cmd {
+                Action::Set(set_cmd) => Ok(Some(set_cmd.value)),
+                action => Err(DbError::OffsetError(action)),
+            }
+        } else {
+            Ok(None)
+        }
     }
     /// Remove : When removing a key, similarly, kvs writes the rm command in the log,
     /// Checking to see first that the key exists
