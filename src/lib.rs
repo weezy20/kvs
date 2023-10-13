@@ -32,7 +32,7 @@ use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader, Read, Seek},
     path::{Path, PathBuf},
 };
 
@@ -168,7 +168,7 @@ impl KvStore {
             trace!("offset: {:?}", offset);
             // File reset seek on self.disk
             let mut file = self.disk.as_ref().ok_or(DbError::Uninitialized)?;
-            std::io::Seek::seek(&mut file, std::io::SeekFrom::Start(0))?;
+            file.rewind()?;
             // Read file line number offset
             let file = BufReader::new(file);
             let buf = file
