@@ -26,13 +26,13 @@
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
 use lazy_static::lazy_static;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Read, Seek},
+    io::{BufRead, BufReader, BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
 };
 
@@ -101,42 +101,53 @@ impl KvStore {
         }
         assert!(store.disk.is_some());
         // -- Initialize the memory map with disk commands --
-        let mut d = store.disk.as_ref().expect("Checked above | cannot fail");
-        let mut buf = String::new();
-        // Reads the entire file at once
-        // Alternatively you can use BufReader on the file and read it line by line to perform deserialization
-        // and replay the `Action`
-        let _bytes_read = d.read_to_string(&mut buf).map_err(|e| {
-            error!("Cannot load log file into memory");
-            e
-        })?;
-        let mut de = ron::Deserializer::from_str(&buf).expect("RON: deserializer init error");
-        let log: Vec<Action> = std::iter::from_fn({
-            move || {
-                de.end()
-                    .is_err()
-                    .then_some(Action::deserialize::<_>(&mut de))
+        // Check if a in memory index is already built, if yes, use that :
+        let mem_idx = std::env::current_dir().unwrap().join("kv_memory.index");
+        if mem_idx.exists() {
+            debug!("Loading in memory index from file {mem_idx:?}");
+            store.map = ron::from_str(std::fs::read_to_string(&mem_idx).unwrap().as_str())?;
+            store.offset =
+                (BufReader::new(store.disk.as_ref().unwrap()).lines().count() + 1) as Offset;
+        } else {
+            let mut d = store.disk.as_ref().expect("Checked above | cannot fail");
+            let mut buf = String::new();
+            // Reads the entire file at once
+            // Alternatively you can use BufReader on the file and read it line by line to perform deserialization
+            // and replay the `Action`
+            let _bytes_read = d.read_to_string(&mut buf).map_err(|e| {
+                error!("Cannot load log file into memory");
+                e
+            })?;
+            let mut de = ron::Deserializer::from_str(&buf).expect("RON: deserializer init error");
+            let log: Vec<Action> = std::iter::from_fn({
+                move || {
+                    de.end()
+                        .is_err()
+                        .then_some(Action::deserialize::<_>(&mut de))
+                }
+            })
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+            // -- Replay the commands in the log --
+            let mut offset: Offset = 0;
+            for (idx, action) in log.iter().enumerate() {
+                // Offset is just tracking the current deserialized index of Action in the list of Actions
+                offset = idx as Offset;
+                match action {
+                    Action::Set(SetCmd { key, .. }) => {
+                        store.map.insert(key.clone(), offset);
+                    }
+                    Action::Get(_) => {
+                        /* Idempotent action.
+                        We should not increase offset on a Get since we ensure we never write a Get to a log */
+                    }
+                    Action::Remove(RmCmd { key }) => {
+                        if let Some(_rm_offset) = store.map.remove(key) {}
+                    }
+                };
             }
-        })
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-        // -- Replay the commands in the log --
-        let mut offset: Offset = 0;
-        for (idx, action) in log.iter().enumerate() {
-            // Offset is just tracking the current deserialized index of Action in the list of Actions
-            offset = idx as Offset;
-            match action {
-                Action::Set(SetCmd { key, .. }) => {
-                    store.map.insert(key.clone(), offset);
-                }
-                Action::Get(_) => {
-                    /* Idempotent action.
-                    We should not increase offset on a Get since we ensure we never write a Get to a log */
-                }
-                Action::Remove(RmCmd { key }) => if let Some(_rm_offset) = store.map.remove(key) {},
-            };
+            // Store latest offset in KvStore for future insertions
+            store.offset = offset + 1;
         }
-        // Store latest offset in KvStore for future insertions
-        store.offset = offset + 1;
         Ok(store)
     }
 }
@@ -177,6 +188,18 @@ impl KvStore {
                 .nth(offset as usize)
                 .expect("Offset contents cannot be empty");
             let set_cmd: Action = ron::de::from_str(&buf)?;
+            // Retain in memory idx if not already present in current working directory
+            let mem_idx = std::env::current_dir().unwrap().join("kv_memory.index");
+            if mem_idx.exists() {
+                let file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(mem_idx)?;
+                let mut file = BufWriter::new(file);
+                // Write contents of in memory map to file
+                file.write(ron::to_string(&self.map)?.as_bytes())?;
+            }
             match set_cmd {
                 Action::Set(set_cmd) => Ok(Some(set_cmd.value)),
                 action => Err(DbError::OffsetError(action)),
