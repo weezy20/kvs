@@ -30,6 +30,7 @@ use log::{debug, error, info, trace};
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Read, Seek, Write},
@@ -55,9 +56,9 @@ pub type Offset = u64;
 #[derive(Debug, Default)]
 pub struct KvStore {
     /// In memory index from key -> offset in log
-    map: HashMap<String, Offset>,
-    disk: Option<File>,
-    offset: Offset,
+    pub(crate) map: HashMap<String, Offset>,
+    pub(crate) disk: Option<RefCell<File>>,
+    pub(crate) offset: Offset,
 }
 
 impl KvStore {
@@ -73,8 +74,10 @@ impl KvStore {
         };
         // -- Load log file into KvStore --
         let wal_path: PathBuf = path.into();
-        let opener = |path: &PathBuf| -> Result<File> {
-            Ok(OpenOptions::new().read(true).append(true).open(&path)?)
+        let opener = |path: &PathBuf| -> Result<RefCell<File>> {
+            Ok(RefCell::new(
+                OpenOptions::new().read(true).append(true).open(&path)?,
+            ))
         };
         // If path is a file, load that file
         if wal_path.is_file() {
@@ -87,34 +90,37 @@ impl KvStore {
                 Ok(_) => store.disk = Some(opener(&wal_path)?),
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                     info!("No kv log found, creating a new one");
-                    store.disk = Some(
+                    store.disk = Some(RefCell::new(
                         OpenOptions::new()
                             .read(true)
                             .append(true)
                             .create(true)
                             .open(&wal_path)?,
-                    );
+                    ));
                     info!("File created and opened successfully: {:?}", wal_path);
                 }
                 Err(unhandled_err) => return Err(unhandled_err.into()),
             }
         }
         assert!(store.disk.is_some());
+        let mut disk = store
+            .disk
+            .as_ref()
+            .expect("Checked above | cannot fail")
+            .borrow_mut();
         // -- Initialize the memory map with disk commands --
         // Check if a in memory index is already built, if yes, use that :
         let mem_idx = std::env::current_dir().unwrap().join("kv_memory.index");
         if mem_idx.exists() {
             debug!("Loading in memory index from file {mem_idx:?}");
             store.map = ron::from_str(std::fs::read_to_string(&mem_idx).unwrap().as_str())?;
-            store.offset =
-                (BufReader::new(store.disk.as_ref().unwrap()).lines().count() + 1) as Offset;
+            store.offset = (BufReader::new(disk.try_clone()?).lines().count() + 1) as Offset;
         } else {
-            let mut d = store.disk.as_ref().expect("Checked above | cannot fail");
             let mut buf = String::new();
             // Reads the entire file at once
             // Alternatively you can use BufReader on the file and read it line by line to perform deserialization
             // and replay the `Action`
-            let _bytes_read = d.read_to_string(&mut buf).map_err(|e| {
+            let _bytes_read = (*disk).read_to_string(&mut buf).map_err(|e| {
                 error!("Cannot load log file into memory");
                 e
             })?;
@@ -148,6 +154,7 @@ impl KvStore {
             // Store latest offset in KvStore for future insertions
             store.offset = offset + 1;
         }
+        drop(disk);
         Ok(store)
     }
 }
@@ -156,7 +163,11 @@ impl KvStore {
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
-        let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
+        let mut file = self
+            .disk
+            .as_ref()
+            .ok_or(DbError::Uninitialized)?
+            .borrow_mut();
         self.map.insert(key.clone(), self.offset);
         self.offset += 1;
         let set_cmd = Action::Set(cli::SetCmd {
@@ -168,21 +179,24 @@ impl KvStore {
         // let serialized = ron::ser::to_string(&set_cmd)? + "\n";
         // write serialized to self.disk
         // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
-        std::io::Write::write_all(file, serialized.as_bytes())?;
+        file.write_all(serialized.as_bytes())?;
         Ok(())
     }
     /// Get : When retrieving a value for a key with the get command, it searches the index,
     /// and if found then loads from the log the command at the corresponding log pointer,
     /// evaluates the command and returns the result.
-    pub fn get(&mut self, key: String) -> Result<Option<String>> {
+    pub fn get(&self, key: String) -> Result<Option<String>> {
         if let Some(&offset) = self.map.get(&key) {
             trace!("offset: {:?}", offset);
             // File reset seek on self.disk
-            let mut file = self.disk.as_ref().ok_or(DbError::Uninitialized)?;
+            let mut file = self
+                .disk
+                .as_ref()
+                .ok_or(DbError::Uninitialized)?
+                .borrow_mut();
             file.rewind()?;
             // Read file line number offset
-            let file = BufReader::new(file);
-            let buf = file
+            let buf = BufReader::new(file.try_clone()?)
                 .lines()
                 .map(|line| line.unwrap())
                 .nth(offset as usize)
@@ -214,14 +228,18 @@ impl KvStore {
     pub fn remove(&mut self, key: String) -> Result<()> {
         // Check using in memory map
         if self.map.contains_key(&key) {
-            let file = self.disk.as_mut().ok_or(DbError::Uninitialized)?;
+            let mut file = self
+                .disk
+                .as_ref()
+                .ok_or(DbError::Uninitialized)?
+                .borrow_mut();
             let rm_cmd = Action::Remove(cli::RmCmd { key: key.clone() });
             // serialize the rm_cmd
             let serialized = ron::ser::to_string_pretty(&rm_cmd, RON_CONFIG.to_owned())? + "\n";
             // let serialized = ron::ser::to_string(&rm_cmd)? + "\n";
             // write serialized to self.disk
             // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
-            std::io::Write::write_all(file, serialized.as_bytes())?;
+            file.write_all(serialized.as_bytes())?;
             self.map.remove(&key);
             Ok(())
         } else {
