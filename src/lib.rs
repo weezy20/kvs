@@ -26,7 +26,8 @@
 //! Without this the log would need to be completely replayed to restore the state of the in-memory index each time the database is started.
 
 use lazy_static::lazy_static;
-use log::{debug, error, info, trace};
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use std::{
@@ -113,8 +114,15 @@ impl KvStore {
         let mem_idx = std::env::current_dir().unwrap().join("kv_memory.index");
         if mem_idx.exists() {
             debug!("Loading in memory index from file {mem_idx:?}");
-            store.map = ron::from_str(std::fs::read_to_string(&mem_idx).unwrap().as_str())?;
-            store.offset = (BufReader::new(disk.try_clone()?).lines().count() + 1) as Offset;
+            match ron::from_str(std::fs::read_to_string(&mem_idx).unwrap().as_str()) {
+                Ok(map) => {
+                    store.map = map;
+                    store.offset =
+                        (BufReader::new(disk.try_clone()?).lines().count() + 1) as Offset;
+                    debug!("Loaded in memory index with offset {}", store.offset);
+                }
+                Err(err) => error!("Cannot load in memory index: {:?}", err),
+            }
         } else {
             let mut buf = String::new();
             // Reads the entire file at once
@@ -137,7 +145,8 @@ impl KvStore {
             let mut offset: Offset = 0;
             for (idx, action) in log.iter().enumerate() {
                 // Offset is just tracking the current deserialized index of Action in the list of Actions
-                offset = idx as Offset;
+                // Offset numbering begins at 1. Offset of 1 = first line of the log
+                offset = (idx + 1) as Offset;
                 match action {
                     Action::Set(SetCmd { key, .. }) => {
                         store.map.insert(key.clone(), offset);
@@ -151,8 +160,12 @@ impl KvStore {
                     }
                 };
             }
-            // Store latest offset in KvStore for future insertions
+            // Store latest (empty) offset in KvStore for future insertions
             store.offset = offset + 1;
+            debug!(
+                "KvStore initialized without in-mem index and offset {}",
+                store.offset
+            );
         }
         drop(disk);
         Ok(store)
@@ -187,19 +200,27 @@ impl KvStore {
     /// evaluates the command and returns the result.
     pub fn get(&self, key: String) -> Result<Option<String>> {
         if let Some(&offset) = self.map.get(&key) {
-            trace!("offset: {:?}", offset);
+            debug!("GET offset: {:?}", offset);
             // File reset seek on self.disk
             let mut file = self
                 .disk
                 .as_ref()
                 .ok_or(DbError::Uninitialized)?
-                .borrow_mut();
+                .borrow_mut()
+                .try_clone()?;
             file.rewind()?;
             // Read file line number offset
-            let buf = BufReader::new(file.try_clone()?)
+            let buf = BufReader::new(file)
                 .lines()
-                .map(|line| line.unwrap())
-                .nth(offset as usize)
+                .enumerate()
+                .map(|(num, line)| {
+                    log::debug!("LOG line: {:?}", line.as_ref());
+                    line.expect(&format!(
+                        "Log Error : Failed to read LOG line number {}",
+                        num + 1
+                    ))
+                })
+                .nth(offset.saturating_sub(1) as usize)
                 .expect("Offset contents cannot be empty");
             let set_cmd: Action = ron::de::from_str(&buf)?;
             // Retain in memory idx if not already present in current working directory
