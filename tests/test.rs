@@ -23,7 +23,7 @@ fn cli_version() {
 }
 
 // `kvs get <KEY>` should print "Key not found" for a non-existent key and exit with zero.
-#[ignore = "We use logs instead of printlns"]
+#[ignore = "Manually checked. We use logs instead of printlns"]
 #[test]
 fn cli_get_non_existent_key() {
     let temp_dir = TempDir::new().unwrap();
@@ -38,7 +38,7 @@ fn cli_get_non_existent_key() {
 
 // `kvs rm <KEY>` should print "Key not found" for an empty database and exit with non-zero code.
 #[test]
-#[ignore = "We use logs instead of printlns"]
+#[ignore = "Manually checked. We use logs instead of printlns"]
 fn cli_rm_non_existent_key() {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     Command::cargo_bin("kvs")
@@ -93,7 +93,7 @@ fn cli_get_stored() -> Result<()> {
 
 // `kvs rm <KEY>` should print nothing and exit with zero.
 #[test]
-#[ignore = "We use logs instead of printlns"]
+#[ignore = "Manually checked. We use logs instead of printlns"]
 fn cli_rm_stored() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
 
