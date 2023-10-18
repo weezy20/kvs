@@ -124,23 +124,7 @@ impl KvStore {
                 Err(err) => error!("Cannot load in memory index: {:?}", err),
             }
         } else {
-            let mut buf = String::new();
-            // Reads the entire file at once
-            // Alternatively you can use BufReader on the file and read it line by line to perform deserialization
-            // and replay the `Action`
-            let _bytes_read = (*disk).read_to_string(&mut buf).map_err(|e| {
-                error!("Cannot load log file into memory");
-                e
-            })?;
-            let mut de = ron::Deserializer::from_str(&buf).expect("RON: deserializer init error");
-            let log: Vec<Action> = std::iter::from_fn({
-                move || {
-                    de.end()
-                        .is_err()
-                        .then_some(Action::deserialize::<_>(&mut de))
-                }
-            })
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+            let log = read_action_from_log(&mut disk)?;
             // -- Replay the commands in the log --
             let mut offset: Offset = 0;
             for (idx, action) in log.iter().enumerate() {
@@ -170,6 +154,47 @@ impl KvStore {
         drop(disk);
         Ok(store)
     }
+
+    /// Run compaction on the disk log
+    fn compaction(&mut self) -> Result<()> {
+        let log = read_action_from_log(
+            &mut self
+                .disk
+                .as_ref()
+                .ok_or(DbError::Uninitialized)?
+                .borrow_mut()
+                .try_clone()?,
+        )?;
+        let mut compacted_log: Vec<Action> = Vec::with_capacity(log.capacity());
+        for action in log {
+            match action {
+                Action::Set(SetCmd { key, value }) => {
+                    todo!("Compaction not implemented")
+                }
+                Action::Get(_) => todo!(),
+                Action::Remove(_) => todo!(),
+            }
+        }
+        Ok(())
+    }
+}
+
+fn read_action_from_log(disk: &mut File) -> Result<Vec<Action>> {
+    let mut buf = String::new();
+    let _bytes_read = (*disk).read_to_string(&mut buf).map_err(|e| {
+        error!("Cannot load log file into memory");
+        e
+    })?;
+    let mut de = ron::Deserializer::from_str(&buf).expect("RON: deserializer init error");
+    let log: Vec<Action> = std::iter::from_fn({
+        move || {
+            de.end()
+                .is_err()
+                .then_some(Action::deserialize::<_>(&mut de))
+        }
+    })
+    .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(log)
 }
 
 impl KvStore {
