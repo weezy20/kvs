@@ -156,29 +156,45 @@ impl KvStore {
     }
 
     /// Run compaction on the disk log
-    fn compaction(&mut self) -> Result<()> {
-        let log = read_action_from_log(
-            &mut self
-                .disk
-                .as_ref()
-                .ok_or(DbError::Uninitialized)?
-                .borrow_mut()
-                .try_clone()?,
-        )?;
-        let mut compacted_log: Vec<Action> = Vec::with_capacity(log.capacity());
-        for action in log {
-            match action {
-                Action::Set(SetCmd { key, value }) => {
-                    todo!("Compaction not implemented")
+    pub fn compaction(&mut self) -> Result<()> {
+        let mut file = self
+            .disk
+            .as_ref()
+            .ok_or(DbError::Uninitialized)?
+            .borrow_mut()
+            .try_clone()?;
+        file.rewind()?;
+
+        let log: Vec<Action> = read_action_from_log(&mut file)?;
+        // Hold unique keys last set value, None in case it was removed
+        let mut unique_keys: HashMap<String, Option<Offset>> = HashMap::new();
+        // let mut compacted_log: Vec<Action> = Vec::with_capacity(log.capacity());
+        // debug!("Log to compact : {log:?}");
+        log.iter().rev().zip((1..self.offset).rev()).for_each(
+            |(action, offset): (&Action, u64)| {
+                // debug!("compact OFFSET: {offset}");
+                match action {
+                    Action::Set(SetCmd { key, .. }) => {
+                        if !unique_keys.contains_key(key) {
+                            unique_keys.insert(key.to_string(), Some(offset));
+                        }
+                    }
+                    Action::Get(_) => (),
+                    Action::Remove(RmCmd { key }) => {
+                        if !unique_keys.contains_key(key) {
+                            unique_keys.insert(key.to_string(), None);
+                        }
+                    }
                 }
-                Action::Get(_) => todo!(),
-                Action::Remove(_) => todo!(),
-            }
-        }
+            },
+        );
+
+        debug!("Unique Keys : {:?}", unique_keys);
+
         Ok(())
     }
 }
-
+/// Deserialize on disk log
 fn read_action_from_log(disk: &mut File) -> Result<Vec<Action>> {
     let mut buf = String::new();
     let _bytes_read = (*disk).read_to_string(&mut buf).map_err(|e| {

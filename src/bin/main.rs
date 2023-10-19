@@ -3,6 +3,7 @@ use kvs::cli;
 use log::{error, info};
 use std::env;
 fn main() -> kvs::Result<()> {
+    ::dotenv::dotenv().ok();
     // Read kv_00001.log file into BufReader 
     // let file = std::fs::File::open("kv_00001.log")?;
     // let buf = std::io::BufReader::new(&file);
@@ -46,6 +47,9 @@ fn main() -> kvs::Result<()> {
                 let _  = kvs.remove(key);
                 exit_program(0);
             }
+        }
+        if cli.compact {
+            kvs.compaction()?;
         }
         Ok(())
     } else {

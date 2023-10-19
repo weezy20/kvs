@@ -14,6 +14,10 @@ pub struct KvsCLI {
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub debug: u8,
+
+    /// Run compaction
+    #[arg(short, long)]
+    pub compact: bool,
 }
 
 #[derive(clap::Args, Serialize, Deserialize, Debug)]
