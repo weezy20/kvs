@@ -252,6 +252,10 @@ impl KvStore {
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
+        if self.map.len() > 500 {
+            // trigger compaction
+            (*self).compaction()?;
+        }
         let mut file = self
             .disk
             .as_ref()
@@ -269,6 +273,7 @@ impl KvStore {
         // write serialized to self.disk
         // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
         file.write_all(serialized.as_bytes())?;
+        
         Ok(())
     }
     /// Get : When retrieving a value for a key with the get command, it searches the index,
