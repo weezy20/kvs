@@ -32,7 +32,7 @@ use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
@@ -167,30 +167,65 @@ impl KvStore {
 
         let log: Vec<Action> = read_action_from_log(&mut file)?;
         // Hold unique keys last set value, None in case it was removed
-        let mut unique_keys: HashMap<String, Option<Offset>> = HashMap::new();
-        // let mut compacted_log: Vec<Action> = Vec::with_capacity(log.capacity());
+        let mut unique_keys: BTreeMap<String, Option<String>> = BTreeMap::new();
+        let mut compacted_log: Vec<Action> = Vec::with_capacity(log.capacity());
         // debug!("Log to compact : {log:?}");
-        log.iter().rev().zip((1..self.offset).rev()).for_each(
-            |(action, offset): (&Action, u64)| {
-                // debug!("compact OFFSET: {offset}");
-                match action {
-                    Action::Set(SetCmd { key, .. }) => {
-                        if !unique_keys.contains_key(key) {
-                            unique_keys.insert(key.to_string(), Some(offset));
-                        }
-                    }
-                    Action::Get(_) => (),
-                    Action::Remove(RmCmd { key }) => {
-                        if !unique_keys.contains_key(key) {
-                            unique_keys.insert(key.to_string(), None);
-                        }
+        log.iter().rev().for_each(|action| {
+            // debug!("compact OFFSET: {offset}");
+            match action {
+                Action::Set(SetCmd { key, value }) => {
+                    if !unique_keys.contains_key(key) {
+                        unique_keys.insert(key.to_string(), Some(value.to_string()));
                     }
                 }
-            },
-        );
-
+                Action::Get(_) => (),
+                Action::Remove(RmCmd { key }) => {
+                    if !unique_keys.contains_key(key) {
+                        unique_keys.insert(key.to_string(), None);
+                    }
+                }
+            }
+        });
         debug!("Unique Keys : {:?}", unique_keys);
-
+        // Rebuild log
+        compacted_log.extend(unique_keys.into_iter().rev().map(|(key, value)| {
+            if let Some(value) = value {
+                Action::Set(SetCmd { key, value })
+            } else {
+                Action::Remove(RmCmd { key })
+            }
+        }));
+        // Recompute offsets
+        self.map.clear();
+        let mut offset: Offset = 1;
+        compacted_log.iter().for_each(|action| {
+            match action {
+                Action::Set(SetCmd { key, .. }) => {
+                    self.map.insert(key.clone(), offset);
+                }
+                Action::Get(_) => {}
+                Action::Remove(RmCmd { key }) => {
+                    self.map.remove(key);
+                }
+            };
+            offset += 1;
+        });
+        self.offset = offset;
+        debug!("Post compaction, current offset {}", self.offset);
+        // Write compacted_log to self.disk
+        let mut file = self
+            .disk
+            .as_ref()
+            .ok_or(DbError::Uninitialized)?
+            .borrow_mut();
+        file.rewind()?;
+        // Clear file contents
+        file.set_len(0)?;
+        // Write serialized to file but one entry at a time instead of as a Vec
+        for action in compacted_log {
+            let serialized = ron::ser::to_string_pretty(&action, RON_CONFIG.to_owned())? + "\n";
+            file.write_all(serialized.as_bytes())?;
+        }
         Ok(())
     }
 }

@@ -4,7 +4,7 @@ use log::{error, info};
 use std::env;
 fn main() -> kvs::Result<()> {
     ::dotenv::dotenv().ok();
-    // Read kv_00001.log file into BufReader 
+    // Read kv_00001.log file into BufReader
     // let file = std::fs::File::open("kv_00001.log")?;
     // let buf = std::io::BufReader::new(&file);
     // let buf2 = std::io::BufRead::lines(buf)
@@ -22,6 +22,10 @@ fn main() -> kvs::Result<()> {
     let cli = <KvsCLI as clap::Parser>::parse();
     // create a local kvs instance
     let mut kvs = kvs::KvStore::open(env::current_dir()?)?;
+
+    if cli.compact {
+        kvs.compaction()?;
+    }
 
     if let Some(action) = cli.action {
         match action {
@@ -44,12 +48,9 @@ fn main() -> kvs::Result<()> {
             }
             Action::Remove(RmCmd { key }) => {
                 info!("Removing \"{key}\"");
-                let _  = kvs.remove(key);
+                let _ = kvs.remove(key);
                 exit_program(0);
             }
-        }
-        if cli.compact {
-            kvs.compaction()?;
         }
         Ok(())
     } else {
