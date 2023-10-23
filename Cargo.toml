@@ -1,4 +1,5 @@
 [workspace.package]
+name = "kvstore"
 authors = ["Abhishek Shah <abhishekshah3@gmail.com>"]
 description = "A  key-value store called kvs"
 edition = "2021"
@@ -10,15 +11,12 @@ authors.workspace = true
 description = "A  key-value store called kvs"
 # licenses.workspace = true
 name = "kvs"
-workspace.edition = true
-workspace.version = true
-
-[workspace]
-members = ["crates/kvs-client", "crates/kvs-server"]
+edition = { workspace = true }
+version = { workspace = true }
 
 [[bin]]
 description = "kvs cli to interact with kvs library"
-name = "kvs"
+name = "kvs-cli"
 path = "src/bin/main.rs"
 
 [[bin]]
@@ -29,23 +27,34 @@ path = "crates/kvs-client/src/main.rs"
 name = "kvs-server"
 path = "crates/kvs-server/src/main.rs"
 
-# [lib]
-# doctest = false
-# name = "kvs"
-# path = "src/lib.rs"
-# test = false
+[lib]
+doctest = false
+name = "kvs"
+path = "src/lib.rs"
+test = false
+
+[workspace]
+members = ["crates/kvs-client", "crates/kvs-server"]
 
 [dependencies]
-clap = {version = "4.1.6", features = ["derive"]}
+clap = { version = "4.1.6", features = ["derive"] }
 dotenv = "0.15.0"
 env_logger = "0.10.0"
-kvs = {path = "."}
 lazy_static = "1.4.0"
 log = "0.4.20"
 ron = "0.8.1"
-serde = {version = "1.0.188", features = ["derive"]}
+serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.104"
 thiserror = "1.0.38"
+
+[workspace.dependencies]
+kvs = { path = "." }
+clap = { version = "4.1.6", features = ["derive"] }
+dotenv = "0.15.0"
+env_logger = "0.10.0"
+lazy_static = "1.4.0"
+log = "0.4.20"
+ron = "0.8.1"
 
 [dev-dependencies]
 assert_cmd = "0.11.0"
