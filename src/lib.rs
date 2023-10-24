@@ -51,6 +51,9 @@ lazy_static! {
         .separate_tuple_members(false);
 }
 
+/// Backend for KvStore
+pub trait KvsEngine {}
+
 /// File offset
 pub type Offset = u64;
 /// KvStore implementation
