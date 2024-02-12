@@ -479,8 +479,14 @@ dependencies = [
 name = "kvs-client"
 version = "1.2.0"
 dependencies = [
+ "assert_cmd",
  "clap 4.4.6",
+ "criterion",
  "kvs",
+ "predicates",
+ "rand",
+ "tempfile",
+ "walkdir",
 ]
 
 [[package]]

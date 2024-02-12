@@ -2,65 +2,24 @@
 authors = ["Abhishek Shah <abhishekshah3@gmail.com>"]
 description = "A  key-value store called kvs"
 edition = "2021"
-name = "kvstore"
-# licenses = ["MIT"]
 version = "1.2.0"
-
-[package]
-authors.workspace = true
-description = "A  key-value store called kvs"
-# licenses.workspace = true
-edition = {workspace = true}
-name = "kvs"
-version = {workspace = true}
-default-run = "kvs"
-
-[[bin]]
-description = "kvs cli to interact with kvs library"
-name = "kvs"
-path = "src/bin/main.rs"
-
-[[bin]]
-name = "kvs-client"
-path = "crates/kvs-client/src/main.rs"
-
-[[bin]]
-name = "kvs-server"
-path = "crates/kvs-server/src/main.rs"
-
-[lib]
-doctest = false
-name = "kvs"
-path = "src/lib.rs"
-test = false
+license = "MIT"
+# https://doc.rust-lang.org/cargo/reference/workspaces.html
 
 [workspace]
-members = ["crates/kvs-client", "crates/kvs-server"]
+resolver = "2"
 
-[dependencies]
-clap = {version = "4.1.6", features = ["derive"]}
-dotenv = "0.15.0"
-env_logger = "0.10.0"
-lazy_static = "1.4.0"
-log = "0.4.20"
-ron = "0.8.1"
-serde = {version = "1.0.188", features = ["derive"]}
-serde_json = "1.0.104"
-thiserror = "1.0.38"
+members = ["crates/kvs-client", "crates/kvs-server", "lib"]
+default-members = ["lib", "crates/kvs-client"]
 
 [workspace.dependencies]
-clap = {version = "4.1.6", features = ["derive"]}
+clap = { version = "4.1.6", features = ["derive"] }
 dotenv = "0.15.0"
 env_logger = "0.10.0"
-kvs = {path = "."}
+kvs = { path = "lib" }
 lazy_static = "1.4.0"
 log = "0.4.20"
 ron = "0.8.1"
-
-[dev-dependencies]
-assert_cmd = "0.11"
-criterion = "0.3"
-predicates = "1.0.0"
-rand = "0.6.5"
-tempfile = "3.0.7"
-walkdir = "2.2.7"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.104"
+thiserror = "1.0.38"
