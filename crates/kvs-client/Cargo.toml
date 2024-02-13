@@ -7,6 +7,11 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "kvs-client"
+path = "src/client.rs"
+
+
 [dependencies]
 kvs = { workspace = true }
 clap = { workspace = true }

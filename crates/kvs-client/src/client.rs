@@ -1,10 +1,8 @@
+use kvs::exit_program;
+
 fn main() {
     println!("Hello, world! from kvs client");
-    exit_program(0);
-}
-/// Non-zero exit code indicates a program error
-fn exit_program(code: i32) -> ! {
-    std::process::exit(code)
+    exit_program(1);
 }
 
 #[derive(Debug, clap::Parser)]

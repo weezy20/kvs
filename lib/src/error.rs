@@ -32,6 +32,12 @@ pub enum DbError {
     /// Ron SpannedResult error
     #[error("{}", _0)]
     RonSpanned(#[from] ron::error::SpannedError),
+    /// Sled Error
+    #[error("{}", _0)]
+    SledError(#[from] sled::Error),
+    /// Sled byte UTF-8 cast failure
+    #[error("{}", _0)]
+    SledUtf8Error(#[from] std::string::FromUtf8Error),
 }
 
 /// KvStore Result type, with error variant representing Database errors

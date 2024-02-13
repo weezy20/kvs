@@ -40,7 +40,9 @@ use std::{
 
 pub mod cli;
 mod error;
+mod utils;
 pub use error::{DbError, Result};
+pub use utils::*;
 
 use crate::cli::{Action, RmCmd, SetCmd};
 
@@ -52,7 +54,14 @@ lazy_static! {
 }
 
 /// Backend for KvStore
-pub trait KvsEngine {}
+pub trait KvsEngine {
+    /// Set key to value
+    fn set(&mut self, key: String, value: String) -> Result<()>;
+    /// Query for key
+    fn get(&self, key: String) -> Result<Option<String>>;
+    /// Remove key
+    fn remove(&mut self, key: String) -> Result<()>;
+}
 
 /// File offset
 pub type Offset = u64;
@@ -251,10 +260,10 @@ fn read_action_from_log(disk: &mut File) -> Result<Vec<Action>> {
     Ok(log)
 }
 
-impl KvStore {
+impl KvsEngine for KvStore {
     /// Set : When setting a key to a value, kvs writes the set command to disk in a sequential log,
     /// then stores the log pointer (file offset) of that command in the in-memory index from key to pointer.
-    pub fn set(&mut self, key: String, value: String) -> Result<()> {
+    fn set(&mut self, key: String, value: String) -> Result<()> {
         if self.map.len() > 500 {
             // trigger compaction
             (*self).compaction()?;
@@ -276,13 +285,13 @@ impl KvStore {
         // write serialized to self.disk
         // TODO : Maybe think about optimizing this? file sys-call on every set cmd?
         file.write_all(serialized.as_bytes())?;
-        
+
         Ok(())
     }
     /// Get : When retrieving a value for a key with the get command, it searches the index,
     /// and if found then loads from the log the command at the corresponding log pointer,
     /// evaluates the command and returns the result.
-    pub fn get(&self, key: String) -> Result<Option<String>> {
+    fn get(&self, key: String) -> Result<Option<String>> {
         if let Some(&offset) = self.map.get(&key) {
             debug!("GET offset: {:?}", offset);
             // File reset seek on self.disk
@@ -330,7 +339,7 @@ impl KvStore {
     /// Remove : When removing a key, similarly, kvs writes the rm command in the log,
     /// Checking to see first that the key exists
     /// then removes the key from the in-memory index.
-    pub fn remove(&mut self, key: String) -> Result<()> {
+    fn remove(&mut self, key: String) -> Result<()> {
         // Check using in memory map
         if self.map.contains_key(&key) {
             let mut file = self
@@ -351,5 +360,43 @@ impl KvStore {
             error!("No such key: {:?}", key);
             Err(DbError::KeyNotFound)
         }
+    }
+}
+/// Sled backend for KVS
+pub struct SledKvsEngine {
+    db: sled::Db,
+}
+
+impl SledKvsEngine {
+    /// Start a Sled Kvs Engine
+    pub fn open(path: impl Into<PathBuf>) -> Result<SledKvsEngine> {
+        let db = sled::open(path.into())?;
+        Ok(SledKvsEngine { db })
+    }
+}
+impl KvsEngine for SledKvsEngine {
+    fn set(&mut self, key: String, value: String) -> Result<()> {
+        let _result = self.db.insert(key.as_bytes(), value.as_bytes())?;
+        Ok(())
+    }
+
+    fn get(&self, key: String) -> Result<Option<String>> {
+        if let Some(result) = self.db.get(key.as_bytes())? {
+            return Ok(Some(
+                String::from_utf8(result.to_vec())
+                    .map_err(|utf8_err| DbError::SledUtf8Error(utf8_err))?,
+            ));
+        }
+        unreachable!("Success or UTF-8 cast fails and returns an error");
+    }
+
+    fn remove(&mut self, key: String) -> Result<()> {
+        let result = self.db.remove(key.as_bytes()).map(|opt| {
+            if opt.is_none() {
+                error!("No such key: {:?}", key);
+            }
+            ()
+        });
+        Ok(result?)
     }
 }
