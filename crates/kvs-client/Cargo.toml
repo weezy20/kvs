@@ -15,6 +15,7 @@ path = "src/client.rs"
 [dependencies]
 kvs = { workspace = true }
 clap = { workspace = true }
+anyhow = "1.0.80"
 
 [dev-dependencies]
 assert_cmd = "0.11"
