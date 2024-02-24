@@ -57,11 +57,11 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
         log::debug!("Written {} bytes to server stream", message_bytes.len());
         log::trace!("Bytes -> {message_bytes:?}");
         server.shutdown(std::net::Shutdown::Write)?;
-        log::trace!("Shut down server stream write");
     }
     // Clear buffer, await response
     message_bytes.clear();
     {
+        // We depend on the server to shutdown the stream after it's finished sending a response
         let bytes_read = server.read_to_end(&mut message_bytes)?;
         log::debug!("Got {} bytes back ", bytes_read);
         let response = common::Response::decode(&message_bytes[0..bytes_read])

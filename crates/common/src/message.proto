@@ -37,5 +37,6 @@ message Message {
 
 // Response from Server to Client if any
 message Response {
-    string value = 1;
+    bool success = 1;
+    string value = 2;
 }
