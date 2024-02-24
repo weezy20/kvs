@@ -23,9 +23,11 @@ fn main() -> anyhow::Result<()> {
     let server = TcpListener::bind(socket).expect("Failed to bind to socket");
     for stream in server.incoming() {
         let request_id = uuid::Uuid::new_v4();
-        let span = tracing::info_span!("Processing", %request_id );
+        let span = tracing::info_span!("Request Processing", %request_id );
         let _span_enter = span.enter();
-        serve_request(stream?)?;
+        if let Err(err) = serve_request(stream?) {
+            error!(%err)
+        }
     }
     Ok(())
 }
