@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package kvs_message;
+
+// Message to set a key-value pair
+message Set {
+    string key = 1;
+    string value = 2;
+}
+
+// Message to get a value for a key
+message Get {
+    string key = 1;
+}
+
+// Message to remove a key-value pair
+message Rm {
+    string key = 1;
+}
+
+// Response from Server to Client if any
+message Response {
+    string value = 1;
+}

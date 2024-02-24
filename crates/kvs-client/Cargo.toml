@@ -15,7 +15,11 @@ path = "src/client.rs"
 [dependencies]
 kvs = { workspace = true }
 clap = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
 anyhow = "1.0.80"
+common = { path = "../common" }
+prost = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "0.11"

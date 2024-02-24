@@ -5,7 +5,7 @@ use tracing::{error, info};
 
 mod request;
 #[tracing::instrument]
-fn main() -> std::io::Result<()> {
+fn main() -> anyhow::Result<()> {
     ::env_logger::init();
     let KvsServer { socket, engine } = <KvsServer as clap::Parser>::parse();
     let socket: SocketAddr = socket.parse().expect("Failed to parse socket address");
@@ -23,9 +23,9 @@ fn main() -> std::io::Result<()> {
     let server = TcpListener::bind(socket).expect("Failed to bind to socket");
     for stream in server.incoming() {
         let request_id = uuid::Uuid::new_v4();
-        let span = tracing::info_span!("Serving", %request_id );
+        let span = tracing::info_span!("Processing", %request_id );
         let _span_enter = span.enter();
-        serve_request(stream?);
+        serve_request(stream?)?;
     }
     Ok(())
 }
