@@ -1,6 +1,6 @@
 use anyhow::Context;
 use common::message::Payload;
-use common::{Get, Message, Rm, Set};
+use common::{Get, Message, Rm, Set, MessageType};
 use kvs::cli::{Action, GetCmd, RmCmd, SetCmd};
 use kvs::exit_program;
 use log::trace;
@@ -36,11 +36,11 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
-    let mut message_bytes = vec![0_u8; 1024];
+    let mut message_bytes : Vec<u8> = vec![];
     let r#type = match payload {
-        Payload::Set { .. } => 0_i32,
-        Payload::Get { .. } => 1_i32,
-        Payload::Rm { .. } => 2_i32,
+        Payload::Set { .. } => MessageType::Set as i32, // 0
+        Payload::Get { .. } => MessageType::Get as i32, // 1
+        Payload::Rm { .. } => MessageType::Rm as i32, // 2
     };
     let message = Message {
         r#type,
@@ -56,6 +56,8 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
         server.flush()?;
         log::debug!("Written {} bytes to server stream", message_bytes.len());
         log::trace!("Bytes -> {message_bytes:?}");
+        server.shutdown(std::net::Shutdown::Write)?;
+        log::trace!("Shut down server stream write");
     }
     // Clear buffer, await response
     message_bytes.clear();
