@@ -1,7 +1,7 @@
-use kvs::{exit_program, SledKvsEngine, KvStore};
+use kvs::{exit_program, KvStore, SledKvsEngine};
 use request::serve_request;
-use std::net::{SocketAddr, TcpListener};
 use std::env;
+use std::net::{SocketAddr, TcpListener};
 use tracing::{error, info};
 
 mod request;
@@ -11,20 +11,19 @@ fn main() -> anyhow::Result<()> {
     let KvsServer { socket, engine } = <KvsServer as clap::Parser>::parse();
     let socket: SocketAddr = socket.parse().expect("Failed to parse socket address");
     let engine_str = engine.expect("clap default used");
-    let mut backend: Backend = match engine_str.as_str() {
-        "kvs" => {
-            Backend::Kvs(KvStore::open(env::current_dir()?)?)
-        }
-        "sled" => {
-            Backend::Sled(SledKvsEngine::open(env::current_dir()?)?)
-        },
+    let mut backend: Backend = match engine_str.to_lowercase().as_str() {
+        "kvs" => Backend::Kvs(KvStore::open(env::current_dir()?)?),
+        "sled" => Backend::Sled(SledKvsEngine::open(env::current_dir()?)?),
         _ => {
             error!("Unsupported Engine");
             exit_program(2);
         }
     };
     info!("Starting KVS server version {}", env!("CARGO_PKG_VERSION"));
-    info!("Server configuration - IP:PORT: {socket}, Storage Engine: {}", engine_str);
+    info!(
+        "Server configuration - IP:PORT: {socket}, Storage Engine: {}",
+        engine_str
+    );
 
     let server = TcpListener::bind(socket).expect("Failed to bind to socket");
     for stream in server.incoming() {
@@ -37,7 +36,6 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
-
 
 #[derive(clap::Parser)]
 struct KvsServer {
