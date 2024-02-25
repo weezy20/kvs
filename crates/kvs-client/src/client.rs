@@ -66,7 +66,12 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
         log::debug!("Got {} bytes back ", bytes_read);
         let response = common::Response::decode(&message_bytes[0..bytes_read])
             .context("failed to decode message response from server")?;
-        println!("{}", response.value);
+        if response.success {
+            println!("✅ Success");
+            if let Some(v) = response.value {
+                println!("{}", v);
+            }
+        }
     }
     Ok(())
 }

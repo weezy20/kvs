@@ -38,5 +38,5 @@ message Message {
 // Response from Server to Client if any
 message Response {
     bool success = 1;
-    string value = 2;
+    optional string value = 2;
 }

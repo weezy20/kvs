@@ -395,6 +395,7 @@ impl KvsEngine for SledKvsEngine {
             if opt.is_none() {
                 error!("No such key: {:?}", key);
             }
+            // We intentionally get rid of the value we just removed
             ()
         });
         Ok(result?)
