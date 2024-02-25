@@ -2,7 +2,9 @@ use env_logger::{Builder, Target};
 use kvs::{exit_program, KvStore, SledKvsEngine};
 use request::serve_request;
 use std::env;
+use std::ffi::OsStr;
 use std::net::{SocketAddr, TcpListener};
+use std::path::PathBuf;
 use tracing::{error, info};
 mod request;
 #[tracing::instrument]
@@ -15,8 +17,18 @@ fn main() -> anyhow::Result<()> {
     let socket: SocketAddr = socket.parse().expect("Failed to parse socket address");
     let engine_str = engine.expect("clap default used");
     let mut backend: Backend = match engine_str.to_lowercase().as_str() {
-        "kvs" => Backend::Kvs(KvStore::open(env::current_dir()?)?),
-        "sled" => Backend::Sled(SledKvsEngine::open(env::current_dir()?)?),
+        "kvs" => {
+            if check_db(env::current_dir()?)? == Db::Sled {
+                exit_program(10);
+            };
+            Backend::Kvs(KvStore::open(env::current_dir()?)?)
+        }
+        "sled" => {
+            if check_db(env::current_dir()?)? == Db::Kvs {
+                exit_program(11);
+            };
+            Backend::Sled(SledKvsEngine::open(env::current_dir()?)?)
+        }
         _ => {
             error!("Unsupported Engine");
             exit_program(2);
@@ -80,4 +92,49 @@ impl std::ops::DerefMut for Backend {
             Backend::Sled(sled) => sled,
         }
     }
+}
+#[derive(Debug, Default, PartialEq)]
+enum Db {
+    Sled,
+    Kvs,
+    #[default]
+    None,
+}
+fn check_db(dir: PathBuf) -> anyhow::Result<Db> {
+    if !dir.exists() {
+        return Err(anyhow::anyhow!("Directory does not exist"));
+    }
+    if !dir.is_dir() {
+        return Err(anyhow::anyhow!("Path is not a directory"));
+    }
+    let mut db = Db::default();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                if let Ok(file_type) = entry.file_type() {
+                    let path = entry.path();
+                    // Check for both sled log and data files:
+                    if file_type.is_file() {
+                        if path.file_name() == Some(OsStr::new("db"))
+                            && path.file_name() == Some(OsStr::new("db"))
+                        {
+                            db = Db::Sled;
+                            break;
+                        }
+                    } else if path.ends_with(".log")
+                        && path
+                            .file_name()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .starts_with("kv_")
+                    {
+                        db = Db::Kvs;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    Ok(db)
 }

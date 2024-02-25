@@ -1,6 +1,6 @@
 use anyhow::Context;
 use common::message::Payload;
-use common::{Get, Message, Rm, Set, MessageType};
+use common::{Get, Message, MessageType, Response, Rm, Set};
 use kvs::cli::{Action, GetCmd, RmCmd, SetCmd};
 use kvs::exit_program;
 use log::trace;
@@ -36,11 +36,11 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
-    let mut message_bytes : Vec<u8> = vec![];
+    let mut message_bytes: Vec<u8> = vec![];
     let r#type = match payload {
         Payload::Set { .. } => MessageType::Set as i32, // 0
         Payload::Get { .. } => MessageType::Get as i32, // 1
-        Payload::Rm { .. } => MessageType::Rm as i32, // 2
+        Payload::Rm { .. } => MessageType::Rm as i32,   // 2
     };
     let message = Message {
         r#type,
@@ -64,12 +64,24 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
         // We depend on the server to shutdown the stream after it's finished sending a response
         let bytes_read = server.read_to_end(&mut message_bytes)?;
         log::debug!("Got {} bytes back ", bytes_read);
-        let response = common::Response::decode(&message_bytes[0..bytes_read])
+        let response = Response::decode(&message_bytes[0..bytes_read])
             .context("failed to decode message response from server")?;
         if response.success {
-            println!("✅ Success");
+            println!(
+                "✅ {} Success",
+                match MessageType::try_from(r#type).expect("message type is valid") {
+                    MessageType::Get => "GET",
+                    MessageType::Set => "SET",
+                    MessageType::Rm => "RM",
+                }
+            );
             if let Some(v) = response.value {
                 println!("{}", v);
+            } else {
+                // If we fetch an unset key, we can print <empty>
+                if r#type == MessageType::Get as i32 {
+                    println!("<empty>");
+                }
             }
         }
     }

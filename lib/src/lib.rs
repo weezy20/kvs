@@ -387,13 +387,13 @@ impl KvsEngine for SledKvsEngine {
                     .map_err(|utf8_err| DbError::SledUtf8Error(utf8_err))?,
             ));
         }
-        unreachable!("Success or UTF-8 cast fails and returns an error");
+        Ok(None)
     }
 
     fn remove(&mut self, key: String) -> Result<()> {
         let result = self.db.remove(key.as_bytes()).map(|opt| {
             if opt.is_none() {
-                error!("No such key: {:?}", key);
+                warn!("No such key: {:?}", key);
             }
             // We intentionally get rid of the value we just removed
             ()
