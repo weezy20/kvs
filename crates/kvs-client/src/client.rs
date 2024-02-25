@@ -77,6 +77,7 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
 }
 
 #[derive(Debug, clap::Parser)]
+#[command(version)]
 struct Cli {
     #[clap(subcommand)]
     action: Action,

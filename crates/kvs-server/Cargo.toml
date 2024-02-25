@@ -12,10 +12,12 @@ path = "src/server.rs"
 
 [dependencies]
 anyhow = { workspace = true }
+log = { workspace = true }
 kvs = { workspace = true }
 clap = { workspace = true }
 tracing = { version = "0.1.40", features = ["log"] }
-tracing-subscriber = "0.3.18"
+# todo: Switch to tracing-subscriber and remove env_logger/log
+# tracing-subscriber = "0.3.18"
 env_logger = "0.11.2"
 uuid = { version = "1.7.0", features = ["v4", "fast-rng"] }
 common = { path = "../common" }

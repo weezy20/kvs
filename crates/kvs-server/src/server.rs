@@ -1,14 +1,17 @@
+use env_logger::{Builder, Target};
 use kvs::{exit_program, KvStore, SledKvsEngine};
 use request::serve_request;
 use std::env;
 use std::net::{SocketAddr, TcpListener};
 use tracing::{error, info};
-
 mod request;
 #[tracing::instrument]
 fn main() -> anyhow::Result<()> {
-    ::env_logger::init();
-    let KvsServer { socket, engine } = <KvsServer as clap::Parser>::parse();
+    Builder::new()
+        .target(Target::Stderr)
+        .filter_level(log::LevelFilter::Info)
+        .init();
+    let KvsServer { socket, engine, .. } = <KvsServer as clap::Parser>::parse();
     let socket: SocketAddr = socket.parse().expect("Failed to parse socket address");
     let engine_str = engine.expect("clap default used");
     let mut backend: Backend = match engine_str.to_lowercase().as_str() {
@@ -38,6 +41,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[derive(clap::Parser)]
+#[command(version)]
 struct KvsServer {
     #[arg(long = "addr", short = 'a', default_value = "127.0.0.1:4000")]
     // Socket v4 or v6 -> IP:PORT
