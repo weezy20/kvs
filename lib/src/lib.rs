@@ -357,7 +357,7 @@ impl KvsEngine for KvStore {
             self.map.remove(&key);
             Ok(())
         } else {
-            error!("No such key: {:?}", key);
+            warn!("No such key: {:?}", key);
             Err(DbError::KeyNotFound)
         }
     }
@@ -391,13 +391,13 @@ impl KvsEngine for SledKvsEngine {
     }
 
     fn remove(&mut self, key: String) -> Result<()> {
-        let result = self.db.remove(key.as_bytes()).map(|opt| {
-            if opt.is_none() {
+        match self.db.remove(key.as_bytes()) {
+            Ok(Some(_)) => Ok(()),
+            Ok(None) => {
                 warn!("No such key: {:?}", key);
+                Err(DbError::KeyNotFound)
             }
-            // We intentionally get rid of the value we just removed
-            ()
-        });
-        Ok(result?)
+            Err(sled_err) => Err(DbError::SledError(sled_err)),
+        }
     }
 }

@@ -72,7 +72,7 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
             } else {
                 // If we fetch an unset key, we can print <empty>
                 if r#type == MessageType::Get as i32 {
-                    println!("Key not found");
+                    eprintln!("Key not found");
                 }
             }
             // println!(
@@ -83,6 +83,10 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
             //         MessageType::Rm => "RM",
             //     }
             // );
+        } else {
+            if let Some(err) = response.value {
+                eprintln!("❌ Server Error: {err}");
+            }
         }
     }
     Ok(())

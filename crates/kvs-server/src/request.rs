@@ -1,6 +1,7 @@
 use crate::Backend;
 use anyhow::{anyhow, bail, Context};
 use common::{message::Payload, Get, Message, Response, Rm, Set};
+use kvs::DbError;
 use prost::Message as ProstMessage;
 use std::{
     io::{Read, Write},
@@ -32,7 +33,7 @@ pub(crate) fn serve_request(backend: &mut Backend, mut stream: TcpStream) -> any
     Ok(())
 }
 // This functions returns a Result, whose Err variant is supposed to notify our server
-// That some processing has failed. Kvs Backend errors are handled differently in that 
+// That some processing has failed. Kvs Backend errors are handled differently in that
 // the failure is logged, and the client is notified with a Response { success: false }
 fn handle_request(backend: &mut Backend, buffer: &[u8]) -> anyhow::Result<Vec<u8>> {
     trace!("🔄 Processing request");
@@ -48,64 +49,58 @@ fn handle_request(backend: &mut Backend, buffer: &[u8]) -> anyhow::Result<Vec<u8
     let response = match payload {
         Payload::Set(Set { key, value }) => {
             trace!("🔄 Processing Set {key}->{value} request");
-            match backend
-                .set(key, value)
-            {
+            match backend.set(key, value) {
                 Ok(()) => Response {
-                    success: true, value: None
+                    success: true,
+                    value: None,
                 },
                 // A backend Err indicates that our KVS failed but we must also notify
                 // this to the client. We follow this logic with all other arms
                 Err(e) => {
-                    error!("🚨 Backend failed to set key-value pair: {}", e);
+                    error!("🚨 Backend failed to SET key-value pair: {}", e);
                     Response {
-                        success: false, value: None
+                        success: false,
+                        value: None,
                     }
                 }
             }
         }
         Payload::Get(Get { key }) => {
             trace!("🔄 Processing Get {key} request");
-            match backend
-                .get(key)
-            {
-                Ok(Some(value)) => {
-                    Response
-                    {
-                        success: true, value: Some(value)
-                    }
+            match backend.get(key) {
+                Ok(Some(value)) => Response {
+                    success: true,
+                    value: Some(value),
                 },
-                Ok(None) => {
-                    Response
-                    {
-                        success: true, value: None
-                    }
+                Ok(None) => Response {
+                    success: true,
+                    value: Some(format!("Key not found")),
                 },
                 Err(e) => {
-                    error!("🚨 Backend failed to get key-value pair: {}", e);
-                    Response
-                    {
-                        success: false, value: None
+                    error!("🚨 Backend failed to GET key-value pair: {}", e);
+                    Response {
+                        success: false,
+                        value: None,
                     }
                 }
             }
         }
         Payload::Rm(Rm { key }) => {
             trace!("🔄 Processing Remove {key} request");
-            match backend
-                .remove(key)
-            {
-                Ok(()) => {
-                    Response
-                    {
-                        success: true, value: None
-                    }
+            match backend.remove(key) {
+                Ok(()) => Response {
+                    success: true,
+                    value: None,
                 },
                 Err(e) => {
-                    error!("🚨 Backend failed to get key-value pair: {}", e);
-                    Response
-                    {
-                        success: false, value: None
+                    error!("🚨 Backend failed to RM key-value pair: {}", e);
+                    Response {
+                        success: false,
+                        // TODO: How can we match on e if DbError doesn't implement PartialEq?
+                        value: match e {
+                            DbError::KeyNotFound => Some(format!("Key not found")),
+                            _ => None,
+                        },
                     }
                 }
             }

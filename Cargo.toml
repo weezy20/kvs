@@ -10,7 +10,7 @@ license = "MIT"
 resolver = "2"
 
 members = ["crates/common", "crates/kvs-client", "crates/kvs-server", "lib"]
-default-members = ["lib", "crates/kvs-client"]
+default-members = ["lib", "crates/kvs-client", "crates/kvs-server"]
 
 [workspace.dependencies]
 anyhow = "1.0.80"

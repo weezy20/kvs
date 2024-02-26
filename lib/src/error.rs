@@ -5,7 +5,7 @@ use std::io;
 
 use crate::cli::Action;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug,)]
 /// Database Error
 pub enum DbError {
     /// KvStore accessed before initialization on disk

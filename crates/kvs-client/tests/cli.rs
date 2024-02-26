@@ -298,7 +298,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("kvs-client")
         .unwrap()
-        .args(&["rm", "key1", "--addr", addr])
+        .args(&["--addr", addr, "rm", "key1"])
         .current_dir(&temp_dir)
         .assert()
         .success();
@@ -338,13 +338,11 @@ fn cli_access_server(engine: &str, addr: &str) {
     sender.send(()).unwrap();
     handle.join().unwrap();
 }
-#[ignore = "todo"]
 #[test]
 fn cli_access_server_kvs_engine() {
     cli_access_server("kvs", "127.0.0.1:4004");
 }
 
-#[ignore = "todo"]
 #[test]
 fn cli_access_server_sled_engine() {
     cli_access_server("sled", "127.0.0.1:4005");

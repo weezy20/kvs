@@ -38,5 +38,6 @@ message Message {
 // Response from Server to Client if any
 message Response {
     bool success = 1;
+    // Contains error message if success is false
     optional string value = 2;
 }
