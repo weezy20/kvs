@@ -1,33 +1,27 @@
-[package]
-name = "kvs"
-version = "0.1.0"
-edition = "2021"
-description = "The cargo project, kvs, builds a command-line key-value store client called kvs, which in turn calls into a library called kvs."
+[workspace.package]
 authors = ["Abhishek Shah <abhishekshah3@gmail.com>"]
+description = "A  key-value store called kvs"
+edition = "2021"
+version = "1.2.0"
+license = "MIT"
+# https://doc.rust-lang.org/cargo/reference/workspaces.html
 
-[[bin]]
-name = "kvs"
-path = "src/bin/main.rs"
+[workspace]
+resolver = "2"
 
-[lib]
-name = "kvs"
-path = "src/lib.rs"
-doctest = false
-test = false
+members = ["crates/common", "crates/kvs-client", "crates/kvs-server", "lib"]
+default-members = ["lib", "crates/kvs-client", "crates/kvs-server"]
 
-[dependencies]
+[workspace.dependencies]
+anyhow = "1.0.80"
 clap = { version = "4.1.6", features = ["derive"] }
 dotenv = "0.15.0"
 env_logger = "0.10.0"
+kvs = { path = "lib" }
 lazy_static = "1.4.0"
 log = "0.4.20"
 ron = "0.8.1"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.104"
 thiserror = "1.0.38"
-
-[dev-dependencies]
-assert_cmd = "0.11.0"
-predicates = "1.0.0"
-tempfile = "3.4.0"
-walkdir = "2.3.2"
+prost = "0.12.3"

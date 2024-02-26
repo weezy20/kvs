@@ -1,0 +1,30 @@
+[package]
+name = "kvs"
+authors.workspace = true
+description.workspace = true
+edition = { workspace = true }
+version = { workspace = true }
+
+[[bin]]
+name = "kvs"
+path = "src/bin/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+dotenv = { workspace = true }
+env_logger = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+ron = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sled = "0.34.7"
+
+[dev-dependencies]
+assert_cmd = "0.11"
+criterion = "0.3"
+predicates = "1.0.0"
+rand = "0.6.5"
+tempfile = "3.0.7"
+walkdir = "2.2.7"

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package kvs_message;
+
+// Request message types for different operations
+enum MessageType {
+  SET = 0;
+  GET = 1;
+  RM = 2;
+}
+
+// Message to set a key-value pair
+message Set {
+    string key = 1;
+    string value = 2;
+}
+
+// Message to get a value for a key
+message Get {
+    string key = 1;
+}
+
+// Message to remove a key-value pair
+message Rm {
+    string key = 1;
+}
+
+// Message containing data for different operations
+message Message {
+  MessageType type = 1;
+  oneof payload {
+    Set set = 2;
+    Get get = 3;
+    Rm rm = 4;
+  }
+}
+
+// Response from Server to Client if any
+message Response {
+    bool success = 1;
+    // Contains error message if success is false
+    optional string value = 2;
+}

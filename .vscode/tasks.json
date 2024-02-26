@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "rust: cargo build",
+			"type": "cargo",
+			"command": "build",
+			"args": [
+				// "--package kvs",
+				// "--bin kvs"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}",
+			},
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+		}
+	]
+}

@@ -1,5 +1,5 @@
 //! This builds the `kvs` executable
-use kvs::cli;
+use kvs::{cli, exit_program, KvsEngine};
 use log::{error, info};
 use std::env;
 fn main() -> kvs::Result<()> {
@@ -56,8 +56,4 @@ fn main() -> kvs::Result<()> {
     } else {
         unreachable!("Action (subcommands) are required");
     }
-}
-/// Non-zero exit code indicates a program error
-fn exit_program(code: i32) -> ! {
-    std::process::exit(code)
 }
