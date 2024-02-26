@@ -1,8 +1,9 @@
+use anyhow::bail;
 use env_logger::{Builder, Target};
 use kvs::{exit_program, KvStore, SledKvsEngine};
 use request::serve_request;
 use std::env;
-use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::net::{SocketAddr, TcpListener};
 use std::path::PathBuf;
 use tracing::{error, info};
@@ -16,15 +17,22 @@ fn main() -> anyhow::Result<()> {
     let KvsServer { socket, engine, .. } = <KvsServer as clap::Parser>::parse();
     let socket: SocketAddr = socket.parse().expect("Failed to parse socket address");
     let engine_str = engine.expect("clap default used");
+    let existing_db = match check_db(env::current_dir()?) {
+        Ok(db) => db,
+        Err(err) => {
+            error!("{}", err);
+            exit_program(4);
+        }
+    };
     let mut backend: Backend = match engine_str.to_lowercase().as_str() {
         "kvs" => {
-            if check_db(env::current_dir()?)? == Db::Sled {
+            if existing_db == Db::Sled {
                 exit_program(10);
             };
             Backend::Kvs(KvStore::open(env::current_dir()?)?)
         }
         "sled" => {
-            if check_db(env::current_dir()?)? == Db::Kvs {
+            if existing_db == Db::Kvs {
                 exit_program(11);
             };
             Backend::Sled(SledKvsEngine::open(env::current_dir()?)?)
@@ -102,39 +110,32 @@ enum Db {
 }
 fn check_db(dir: PathBuf) -> anyhow::Result<Db> {
     if !dir.exists() {
-        return Err(anyhow::anyhow!("Directory does not exist"));
+        bail!("Directory does not exist");
     }
     if !dir.is_dir() {
-        return Err(anyhow::anyhow!("Path is not a directory"));
+        bail!("Path is not a directory");
     }
-    let mut db = Db::default();
+    let mut sled_db = false;
+    let mut kvs_db = false;
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries {
             if let Ok(entry) = entry {
-                if let Ok(file_type) = entry.file_type() {
-                    let path = entry.path();
-                    // Check for both sled log and data files:
-                    if file_type.is_file() {
-                        if path.file_name() == Some(OsStr::new("db"))
-                            && path.file_name() == Some(OsStr::new("db"))
-                        {
-                            db = Db::Sled;
-                            break;
-                        }
-                    } else if path.ends_with(".log")
-                        && path
-                            .file_name()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .starts_with("kv_")
-                    {
-                        db = Db::Kvs;
-                        break;
-                    }
+                if entry.file_name() == OsString::from("db") {
+                    println!("Sled found");
+                    sled_db = true;
+                } else if entry.file_name().to_str().unwrap().starts_with("kv_")
+                    && entry.file_name().to_str().unwrap().ends_with(".log")
+                {
+                    println!("Kvs found");
+                    kvs_db = true;
                 }
             }
         }
     }
-    Ok(db)
+    match (sled_db, kvs_db) {
+        (true, true) => bail!("Both databases found. Abort"),
+        (true, false) => Ok(Db::Sled),
+        (false, true) => Ok(Db::Kvs),
+        (false, false) => Ok(Db::None),
+    }
 }

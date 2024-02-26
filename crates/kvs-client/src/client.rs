@@ -67,22 +67,22 @@ fn send(payload: Payload, server: &mut TcpStream) -> anyhow::Result<()> {
         let response = Response::decode(&message_bytes[0..bytes_read])
             .context("failed to decode message response from server")?;
         if response.success {
-            println!(
-                "✅ {} Success",
-                match MessageType::try_from(r#type).expect("message type is valid") {
-                    MessageType::Get => "GET",
-                    MessageType::Set => "SET",
-                    MessageType::Rm => "RM",
-                }
-            );
             if let Some(v) = response.value {
                 println!("{}", v);
             } else {
                 // If we fetch an unset key, we can print <empty>
                 if r#type == MessageType::Get as i32 {
-                    println!("<empty>");
+                    println!("Key not found");
                 }
             }
+            // println!(
+            //     "✅ {} Success",
+            //     match MessageType::try_from(r#type).expect("message type is valid") {
+            //         MessageType::Get => "GET",
+            //         MessageType::Set => "SET",
+            //         MessageType::Rm => "RM",
+            //     }
+            // );
         }
     }
     Ok(())
