@@ -1,5 +1,7 @@
 extern crate prost_build;
 
 fn main() {
-    prost_build::compile_protos(&["src/message.proto"], &["src/"]).unwrap();
+    let mut config = prost_build::Config::new();
+    config.protoc_arg("--experimental_allow_proto3_optional");
+    config.compile_protos(&["src/message.proto"], &["src/"]).unwrap();
 }
