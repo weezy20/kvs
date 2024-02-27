@@ -99,5 +99,7 @@ struct Cli {
     action: Action,
     /// Server location
     #[arg(short, long, default_value = "127.0.0.1:4000")]
+    // Propagate `--addr` to all subcommands
+    #[arg(global = true )]
     addr: String,
 }
