@@ -32,39 +32,39 @@ fn cold_start_get(c: &mut Criterion) {
     group.finish();
 }
 fn set_many_keys(c: &mut Criterion) {
-    let mut group = c.benchmark_group("SET/RM");
+    let mut group = c.benchmark_group("SET & RM");
     let temp_dir = TempDir::new().unwrap();
     let mut store = KvStore::open(&temp_dir.path()).unwrap();
     let test_data: Vec<(String, String)> = generate_test_data();
-    group.bench_function("kvs: set key", |b: &mut Bencher<_>| {
+    group.bench_function("kvs: SET key", |b: &mut Bencher<_>| {
         b.iter(|| {
-            for (k, v) in test_data.clone().into_iter() {
+            black_box(for (k, v) in test_data.clone().into_iter() {
                 store.set(k, v).unwrap();
-            }
+            })
         })
     });
-    group.bench_function("kvs: remove keys", |b| {
+    group.bench_function("kvs: Remove keys", |b| {
         b.iter(|| {
-            for (k, _) in test_data.clone().into_iter() {
+            black_box(for (k, _) in test_data.clone().into_iter() {
                 store.remove(k).unwrap();
-            }
+            })
         })
     });
     let temp_dir = TempDir::new().unwrap();
     let mut store = SledKvsEngine::open(&temp_dir.path()).unwrap();
     let test_data: Vec<(String, String)> = generate_test_data();
-    group.bench_function("sled: set key", |b: &mut Bencher<_>| {
+    group.bench_function("sled: SET key", |b: &mut Bencher<_>| {
         b.iter(|| {
-            for (k, v) in test_data.clone().into_iter() {
+            black_box(for (k, v) in test_data.clone().into_iter() {
                 store.set(k, v).unwrap();
-            }
+            })
         })
     });
-    group.bench_function("sled: remove keys", |b| {
+    group.bench_function("sled: Remove keys", |b| {
         b.iter(|| {
-            for (k, _) in test_data.clone().into_iter() {
+            black_box(for (k, _) in test_data.clone().into_iter() {
                 store.remove(k).unwrap();
-            }
+            })
         })
     });
     group.finish();
