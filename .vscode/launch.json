@@ -5,17 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "cppvsdbg",
+            "name": "Trace sled/GET",
+            "type": "lldb",
             "request": "launch",
-            "name": "Debug cmd in executable 'kvs'",
-            "program": "${workspaceFolder}/target/debug/kvs.exe",
+            "program": "${workspaceFolder}/target/debug/kvs-client",
             "args": [
-                "set",
-                "horseradish",
-                "clams"
+                "--engine sled",
+                "get",
+                "horseradish"
             ],
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "rust: cargo build",
+            "preLaunchTask": "Start Sled Server with Keys",
         },
-    ]
+    ],
 }

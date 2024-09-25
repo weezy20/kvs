@@ -6,16 +6,25 @@
 			"type": "cargo",
 			"command": "build",
 			"args": [
-				// "--package kvs",
-				// "--bin kvs"
+				"--workspace"
 			],
 			"options": {
-				"cwd": "${workspaceFolder}",
+				"cwd": "${workspaceFolder}"
 			},
 			"problemMatcher": [
 				"$rustc"
 			],
-			"group": "build",
-		}
+			"group": "build"
+		},
+		{
+			"label": "Start Sled Server with Keys",
+			"type": "shell",
+			"command": "cargo build --workspace && ./target/debug/kvs-server --engine sled & ./target/debug/kvs-client --engine sled set horseradish clams",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [],
+			"group": "test"
+		},
 	]
 }

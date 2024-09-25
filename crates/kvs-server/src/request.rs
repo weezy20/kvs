@@ -19,10 +19,10 @@ pub(crate) fn serve_request(backend: &mut Backend, mut stream: TcpStream) -> any
     let bytes_read = stream.read(&mut buffer)?;
     trace!("{bytes_read} bytes read : {:?}", &buffer[..bytes_read]);
     if buffer.iter().all(|x| *x == 0) {
-        bail!("Request is zeroes 0️.. aborting");
+        bail!("Request is zeroes 0.. aborting");
     }
     {
-        /* Response */
+        // Response 
         let response: Vec<u8> = handle_request(backend, &buffer[..bytes_read])?;
         drop(buffer);
         stream.write_all(response.as_slice())?;
