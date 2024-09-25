@@ -65,6 +65,7 @@ fn set_many_keys(c: &mut Criterion) {
             black_box(for (k, _) in test_data.clone().into_iter() {
                 store.remove(k).unwrap();
             })
+
         })
     });
     group.finish();
