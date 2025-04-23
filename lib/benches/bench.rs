@@ -36,14 +36,14 @@ fn set_many_keys(c: &mut Criterion) {
     let temp_dir = TempDir::new().unwrap();
     let mut store = KvStore::open(&temp_dir.path()).unwrap();
     let test_data: Vec<(String, String)> = generate_test_data();
-    group.bench_function("kvs: SET key", |b: &mut Bencher<_>| {
+    group.bench_function("kvs: SET", |b: &mut Bencher<_>| {
         b.iter(|| {
             black_box(for (k, v) in test_data.clone().into_iter() {
                 store.set(k, v).unwrap();
             })
         })
     });
-    group.bench_function("kvs: Remove keys", |b| {
+    group.bench_function("kvs: REMOVE", |b| {
         b.iter(|| {
             black_box(for (k, _) in test_data.clone().into_iter() {
                 store.remove(k).unwrap();
@@ -53,19 +53,18 @@ fn set_many_keys(c: &mut Criterion) {
     let temp_dir = TempDir::new().unwrap();
     let mut store = SledKvsEngine::open(&temp_dir.path()).unwrap();
     let test_data: Vec<(String, String)> = generate_test_data();
-    group.bench_function("sled: SET key", |b: &mut Bencher<_>| {
+    group.bench_function("sled: SET", |b: &mut Bencher<_>| {
         b.iter(|| {
             black_box(for (k, v) in test_data.clone().into_iter() {
                 store.set(k, v).unwrap();
             })
         })
     });
-    group.bench_function("sled: Remove keys", |b| {
+    group.bench_function("sled: REMOVE", |b| {
         b.iter(|| {
             black_box(for (k, _) in test_data.clone().into_iter() {
                 store.remove(k).unwrap();
             })
-
         })
     });
     group.finish();
@@ -87,10 +86,17 @@ fn generate_random_string(length: usize) -> String {
 
 fn generate_test_data() -> Vec<(String, String)> {
     let mut data: Vec<(String, String)> = vec![];
+    const MIN_LENGTH: usize = 1;
+    const MAX_LENGTH: usize = 100_000;
+    let mut rng = rand::thread_rng();
 
     for item in &mut data {
-        item.0 = generate_random_string(40); // Adjust the length as needed
-        item.1 = generate_random_string(100); // Adjust the length as needed
+        let (k_len, v_len) = (
+            rng.gen_range(MIN_LENGTH..=MAX_LENGTH),
+            rng.gen_range(MIN_LENGTH..=MAX_LENGTH),
+        );
+        item.0 = generate_random_string(k_len); // Adjust the length as needed
+        item.1 = generate_random_string(v_len); // Adjust the length as needed
     }
 
     data
