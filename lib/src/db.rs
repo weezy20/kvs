@@ -5,7 +5,6 @@ use rayon::prelude::*;
 use std::{
     collections::HashMap,
     env,
-    fs::OpenOptions,
     path::{Path, PathBuf},
     sync::atomic::AtomicUsize,
 };
@@ -60,6 +59,7 @@ impl Default for KvsDatabase {
 }
 
 impl KvsDatabase {
+    /// Create a new KvsDatabase
     pub fn open(path: &Path) -> Result<Self> {
         let db = Self {
             path: path.to_path_buf(),
