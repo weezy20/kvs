@@ -39,6 +39,7 @@ use std::{
 };
 
 pub mod cli;
+mod db;
 mod error;
 mod utils;
 pub use error::{DbError, Result};

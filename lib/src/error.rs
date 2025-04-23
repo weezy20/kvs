@@ -5,7 +5,7 @@ use std::io;
 
 use crate::cli::Action;
 
-#[derive(thiserror::Error, Debug,)]
+#[derive(thiserror::Error, Debug)]
 /// Database Error
 pub enum DbError {
     /// KvStore accessed before initialization on disk
@@ -38,6 +38,9 @@ pub enum DbError {
     /// Sled byte UTF-8 cast failure
     #[error("{}", _0)]
     SledUtf8Error(#[from] std::string::FromUtf8Error),
+    /// Invalid Datafile name. Correct format is kv_<sequence_number>.data
+    #[error("Expected format `kv_<sequence-number>.data` found {}", _0)]
+    InvalidDatafileName(String),
 }
 
 /// KvStore Result type, with error variant representing Database errors
